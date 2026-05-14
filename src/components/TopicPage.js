@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import SimpleEditor from './SimpleEditor';
 import { getEvidenceProfile } from '../utils/evidenceProfile';
 import { getLibrarianNotes } from '../data/archivistQuotes';
+import LogCaptureModal from './LogCaptureModal';
 
 const RULED = 'repeating-linear-gradient(transparent, transparent 24px, rgba(100,80,50,0.055) 24px, rgba(100,80,50,0.055) 25px)';
 
@@ -95,10 +96,136 @@ function ContradictionCard({ item, onDelete, onResolve }) {
 }
 
 // ── Main TopicPage ────────────────────────────────────────────────
+// ── Quote types ───────────────────────────────────────────────────
+const QUOTE_TYPES = {
+  defines:      { label: 'Defines',      color: '#2a4a7a', icon: '◈' },
+  supports:     { label: 'Supports',     color: '#2e7d5e', icon: '⊕' },
+  complicates:  { label: 'Complicates',  color: '#b07d28', icon: '⊛' },
+  exemplifies:  { label: 'Exemplifies',  color: '#4a2a6a', icon: '◎' },
+  contradicts:  { label: 'Contradicts',  color: '#c0392b', icon: '✕' },
+};
+
+function EvidenceTab({ topic, onUpdate, isDark }) {
+  const quotes = topic.quotes || [];
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft]   = useState({ text: '', attribution: '', gloss: '', type: 'defines', page: '' });
+
+  const addQuote = () => {
+    if (!draft.text.trim()) return;
+    const q = { id: Date.now().toString(), ...draft, createdAt: new Date().toISOString() };
+    onUpdate({ ...topic, quotes: [...quotes, q], updatedAt: new Date().toISOString() });
+    setDraft({ text: '', attribution: '', gloss: '', type: 'defines', page: '' });
+    setAdding(false);
+  };
+
+  const deleteQuote = (id) => {
+    onUpdate({ ...topic, quotes: quotes.filter(q => q.id !== id), updatedAt: new Date().toISOString() });
+  };
+
+  return (
+    <div style={{ flex:1, overflowY:'auto', padding:'20px 24px', background:isDark?'#1a1712':'#faf6ee' }}>
+
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18, paddingBottom:10, borderBottom:'1px dashed var(--paper-3)' }}>
+        <div>
+          <div style={{ fontSize:8, color:'var(--ink-4)', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:3 }}>Evidence · {quotes.length} quote{quotes.length!==1?'s':''}</div>
+          <div style={{ fontSize:11, color:'var(--ink-4)', fontStyle:'italic' }}>The quotes that substantiate this concept. Curate — not everything, the essential.</div>
+        </div>
+        <button onClick={() => setAdding(a => !a)}
+          style={{ fontSize:10, padding:'5px 14px', borderRadius:2, border:'1px solid var(--paper-3)', color:adding?'var(--red)':'var(--ink-3)', background:'transparent', cursor:'pointer', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.06em' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor='var(--accent-2)'; e.currentTarget.style.color='var(--accent)'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor='var(--paper-3)'; e.currentTarget.style.color=adding?'var(--red)':'var(--ink-3)'; }}>
+          {adding ? '✕ cancel' : '+ quote'}
+        </button>
+      </div>
+
+      {/* Add form */}
+      {adding && (
+        <div style={{ background:isDark?'#211e16':'#f0e8d4', border:'1px solid var(--paper-3)', borderRadius:2, padding:'16px 18px', marginBottom:20 }}>
+          <div style={{ fontSize:8, color:'var(--ink-4)', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:10 }}>File new evidence</div>
+
+          {/* Quote text */}
+          <textarea value={draft.text} onChange={e => setDraft(d => ({...d, text: e.target.value}))}
+            placeholder="The quote — exact words, exactly as written…"
+            rows={4}
+            style={{ width:'100%', resize:'vertical', padding:'8px 10px', fontSize:13, fontStyle:'italic', fontFamily:'var(--font-serif)', lineHeight:1.7, border:'1px solid var(--paper-3)', borderRadius:2, background:'transparent', marginBottom:10 }} />
+
+          {/* Attribution + page */}
+          <div style={{ display:'flex', gap:10, marginBottom:10 }}>
+            <input value={draft.attribution} onChange={e => setDraft(d => ({...d, attribution: e.target.value}))}
+              placeholder="Author, Work, Year…"
+              style={{ flex:1, padding:'6px 8px', fontSize:11, fontStyle:'italic', borderRadius:2, border:'1px solid var(--paper-3)', background:'transparent' }} />
+            <input value={draft.page} onChange={e => setDraft(d => ({...d, page: e.target.value}))}
+              placeholder="p. 42"
+              style={{ width:70, padding:'6px 8px', fontSize:11, fontFamily:'var(--font-mono)', fontStyle:'normal', borderRadius:2, border:'1px solid var(--paper-3)', background:'transparent' }} />
+          </div>
+
+          {/* Gloss */}
+          <textarea value={draft.gloss} onChange={e => setDraft(d => ({...d, gloss: e.target.value}))}
+            placeholder="Your gloss — one sentence on why this quote matters for this concept…"
+            rows={2}
+            style={{ width:'100%', resize:'none', padding:'6px 8px', fontSize:11, fontFamily:'var(--font-serif)', lineHeight:1.6, border:'1px solid var(--paper-3)', borderRadius:2, background:'transparent', marginBottom:10 }} />
+
+          {/* Type selector */}
+          <div style={{ display:'flex', gap:6, marginBottom:12, flexWrap:'wrap' }}>
+            {Object.entries(QUOTE_TYPES).map(([k, v]) => (
+              <button key={k} onClick={() => setDraft(d => ({...d, type:k}))}
+                style={{ fontSize:9, padding:'3px 10px', borderRadius:2, border:`1px solid ${draft.type===k?v.color:'var(--paper-3)'}`, background:draft.type===k?v.color+'18':'transparent', color:draft.type===k?v.color:'var(--ink-4)', cursor:'pointer', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.05em' }}>
+                {v.icon} {v.label}
+              </button>
+            ))}
+          </div>
+
+          <button onClick={addQuote}
+            style={{ fontSize:10, padding:'6px 18px', borderRadius:2, background:'var(--ink)', color:'var(--paper-card)', border:'none', cursor:'pointer', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.07em' }}>
+            FILE EVIDENCE
+          </button>
+        </div>
+      )}
+
+      {/* Quote list */}
+      {quotes.length === 0 && !adding ? (
+        <div style={{ textAlign:'center', padding:'40px 0' }}>
+          <div style={{ fontSize:28, opacity:0.07, marginBottom:10 }}>❝</div>
+          <div style={{ fontSize:12, color:'var(--ink-4)', fontStyle:'italic', lineHeight:1.8 }}>
+            No evidence filed yet.<br/>
+            The quote is where the neural signal becomes an argument.
+          </div>
+        </div>
+      ) : quotes.map((q, i) => {
+        const qt = QUOTE_TYPES[q.type] || QUOTE_TYPES.defines;
+        return (
+          <div key={q.id} style={{ marginBottom:18, padding:'14px 16px', background:isDark?'#1e1b13':'#fefcf5', border:'1px solid var(--paper-3)', borderLeft:`3px solid ${qt.color}`, borderRadius:2, position:'relative' }}>
+            {/* Type badge */}
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+              <span style={{ fontSize:8, padding:'2px 8px', border:`1px solid ${qt.color}44`, borderRadius:2, color:qt.color, fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.08em', textTransform:'uppercase' }}>{qt.icon} {qt.label}</span>
+              {q.attribution && <span style={{ fontSize:9, color:'var(--ink-4)', fontFamily:'var(--font-mono)', fontStyle:'normal' }}>— {q.attribution}{q.page ? `, ${q.page}` : ''}</span>}
+              <button onClick={() => deleteQuote(q.id)}
+                style={{ marginLeft:'auto', fontSize:10, color:'var(--ink-4)', background:'none', border:'none', cursor:'pointer', opacity:0.4 }}
+                onMouseEnter={e => { e.currentTarget.style.opacity='1'; e.currentTarget.style.color='var(--red)'; }}
+                onMouseLeave={e => { e.currentTarget.style.opacity='0.4'; e.currentTarget.style.color='var(--ink-4)'; }}>✕</button>
+            </div>
+            {/* Quote */}
+            <div style={{ fontSize:13, fontStyle:'italic', fontFamily:'var(--font-serif)', color:'var(--ink)', lineHeight:1.75, marginBottom:q.gloss?10:0 }}>
+              "{q.text}"
+            </div>
+            {/* Gloss */}
+            {q.gloss && (
+              <div style={{ fontSize:11, color:'var(--ink-3)', lineHeight:1.6, paddingTop:8, borderTop:'1px dashed var(--paper-3)', fontFamily:'var(--font-serif)' }}>
+                {q.gloss}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function TopicPage({
   topic, thoughts, books = [], articles = [], allThoughts, thoughtTypes,
-  investigations = [], events = [], domains = [],
-  onUpdate, onDelete, onBack, onCreateSubTopic, onViewInvestigation,
+  investigations = [], events = [], domains = [], anatomy = [],
+  onUpdate, onDelete, onBack, onCreateSubTopic, onViewInvestigation, onAddLog, onReturnToMeta,
 }) {
   const [activeTab, setActiveTab]         = useState('record');
   const [editingTitle, setEditingTitle]   = useState(false);
@@ -107,6 +234,7 @@ export default function TopicPage({
   const [attachSearch, setAttachSearch]   = useState('');
   const [showContraForm, setShowContraForm] = useState(false);
   const [newContra, setNewContra]         = useState({ sourceA:'', sourceB:'', claim:'' });
+  const [logCapture, setLogCapture]       = useState(null);
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
   const domain = domains.find(d => d.id === topic.domainId) || null;
@@ -159,13 +287,16 @@ export default function TopicPage({
   // Methodology summary
   const methodologies = [...new Set(linkedBooks.map(b=>b.methodology).filter(Boolean))];
 
-  // Connections — linked investigations and events
+  // Connections — linked investigations, events and anatomy entries
   const linkedInvestigations = investigations.filter(inv =>
     (inv.tags||[]).some(t => topic.title.toLowerCase().includes(t) || t.toLowerCase().includes(topic.title.toLowerCase().slice(0,5))) ||
     (inv.title||'').toLowerCase().includes(topic.title.toLowerCase().slice(0,6))
   );
   const linkedEvents = events.filter(ev =>
     (ev.tags||[]).some(t => topic.title.toLowerCase().includes(t) || t.toLowerCase().includes(topic.title.toLowerCase().slice(0,5)))
+  );
+  const linkedAnatomy = anatomy.filter(a =>
+    (a.topicIds || []).includes(topic.id)
   );
 
   const code = subjectCode(topic.id);
@@ -187,14 +318,16 @@ export default function TopicPage({
   };
 
   const TABS = [
-    { id:'record',      label:'◎ Record'      },
+    { id:'record',      label:'◎ The Record'  },
     { id:'sources',     label:'◧ Sources'     },
-    { id:'debates',     label:'⊛ Debates'     },
-    { id:'connections', label:'↔ Connections' },
-    { id:'analyst',     label:'✎ Analyst'     },
+    { id:'debates',     label:'⊛ Contested'   },
+    { id:'connections', label:'↔ Synapses'    },
+    { id:'evidence',    label:'❝ Evidence'    },
+    { id:'analyst',     label:'✎ The Analyst' },
   ];
 
   return (
+  <>
     <div style={{ display:'flex', flexDirection:'column', height:'100%', background:isDark?'#18140e':'#f5f0e4', fontFamily:'var(--font-serif)' }}>
 
       {/* ── SUBJECT FILE HEADER ────────────────────────── */}
@@ -209,6 +342,14 @@ export default function TopicPage({
             onMouseLeave={e=>e.currentTarget.style.borderColor='var(--paper-3)'}>
             ← THE STACKS
           </button>
+          {onReturnToMeta && (
+            <button onClick={onReturnToMeta}
+              style={{ fontSize:8, color:'#00ff41', cursor:'pointer', background:'none', border:'1px solid #00ff4133', borderRadius:2, padding:'2px 9px', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.08em' }}
+              onMouseEnter={e=>{ e.currentTarget.style.borderColor='#00ff41'; e.currentTarget.style.background='#00ff4111'; }}
+              onMouseLeave={e=>{ e.currentTarget.style.borderColor='#00ff4133'; e.currentTarget.style.background='none'; }}>
+              ← META
+            </button>
+          )}
           {/* Domain breadcrumb */}
           {domain && (
             <div style={{ display:'flex', alignItems:'center', gap:4 }}>
@@ -222,6 +363,14 @@ export default function TopicPage({
           <div style={{ flex:1 }} />
           <span style={{ fontSize:8, color:'var(--ink-4)', fontFamily:'var(--font-mono)', fontStyle:'normal' }}>{lastUpdated}</span>
           <CopyBtn text={buildExport()} />
+          {onAddLog && (
+            <button onClick={() => setLogCapture({ context: { label: topic.title, sourceType: 'topic', sourceId: topic.id, sourceName: topic.title }, prefill: {} })}
+              style={{ fontSize:8, padding:'2px 9px', borderRadius:2, border:'1px solid var(--paper-3)', color:'var(--ink-3)', background:'transparent', cursor:'pointer', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.07em' }}
+              onMouseEnter={e=>{ e.currentTarget.style.borderColor='var(--accent-2)'; e.currentTarget.style.color='var(--accent)'; }}
+              onMouseLeave={e=>{ e.currentTarget.style.borderColor='var(--paper-3)'; e.currentTarget.style.color='var(--ink-3)'; }}>
+              → Log
+            </button>
+          )}
           {onCreateSubTopic && !topic.parentId && (
             <button onClick={()=>onCreateSubTopic(topic.id)} style={{ fontSize:8, padding:'2px 9px', borderRadius:2, border:'1px solid var(--paper-3)', color:'var(--ink-3)', background:'transparent', cursor:'pointer', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.07em' }}>+ SUB-FILE</button>
           )}
@@ -395,6 +544,49 @@ export default function TopicPage({
         </div>
       )}
 
+      {/* ── CONTESTED TAB ───────────────────────────────── */}
+      {activeTab === 'debates' && (
+        <div style={{ flex:1, overflowY:'auto', padding:'20px 24px', background:isDark?'#1a1712':'#faf6ee' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, paddingBottom:10, borderBottom:'1px dashed var(--paper-3)' }}>
+            <div>
+              <div style={{ fontSize:8, color:'#c0392b', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:3 }}>⊘ Contested — {contradictions.length} dispute{contradictions.length!==1?'s':''}</div>
+              <div style={{ fontSize:11, color:'var(--ink-4)', fontStyle:'italic' }}>Where sources disagree. Disagreement is evidence — file it here.</div>
+            </div>
+            <button onClick={()=>setShowContraForm(s=>!s)}
+              style={{ fontSize:9, padding:'4px 12px', borderRadius:2, border:'1px solid #c0392b44', color:'#c0392b', background:'transparent', cursor:'pointer', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.05em' }}
+              onMouseEnter={e=>e.currentTarget.style.background='#c0392b11'}
+              onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+              {showContraForm ? 'cancel' : '+ dispute'}
+            </button>
+          </div>
+
+          {showContraForm && (
+            <div style={{ background:isDark?'#211810':'#fdf0ec', border:'1px solid #c0392b22', borderRadius:2, padding:'14px 16px', marginBottom:16 }}>
+              <div style={{ fontSize:8, color:'#c0392b', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:10 }}>Record a dispute</div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8 }}>
+                <input value={newContra.sourceA} onChange={e=>setNewContra(c=>({...c,sourceA:e.target.value}))} placeholder="Source A…" style={{ padding:'6px 8px', fontSize:11, borderRadius:2, fontStyle:'italic', border:'1px solid var(--paper-3)', background:'transparent' }} />
+                <input value={newContra.sourceB} onChange={e=>setNewContra(c=>({...c,sourceB:e.target.value}))} placeholder="Source B…" style={{ padding:'6px 8px', fontSize:11, borderRadius:2, fontStyle:'italic', border:'1px solid var(--paper-3)', background:'transparent' }} />
+              </div>
+              <textarea value={newContra.claim} onChange={e=>setNewContra(c=>({...c,claim:e.target.value}))} placeholder="What is disputed between them?" rows={3}
+                style={{ width:'100%', padding:'6px 8px', fontSize:12, borderRadius:2, resize:'vertical', fontFamily:'var(--font-serif)', border:'1px solid var(--paper-3)', background:'transparent', marginBottom:8 }} />
+              <button onClick={addContradiction} style={{ fontSize:9, padding:'4px 16px', borderRadius:2, background:'#c0392b', color:'#fff', border:'none', cursor:'pointer', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.07em' }}>RECORD DISPUTE</button>
+            </div>
+          )}
+
+          {contradictions.length === 0 && !showContraForm ? (
+            <div style={{ textAlign:'center', padding:'40px 0' }}>
+              <div style={{ fontSize:28, opacity:0.07, marginBottom:10 }}>⊘</div>
+              <div style={{ fontSize:12, color:'var(--ink-4)', fontStyle:'italic', lineHeight:1.8 }}>
+                No contested points recorded yet.<br/>
+                Disagreement between sources is evidence — note it here.
+              </div>
+            </div>
+          ) : contradictions.map(item => (
+            <ContradictionCard key={item.id} item={item} onDelete={removeContradiction} onResolve={resolveContradiction} />
+          ))}
+        </div>
+      )}
+
       {/* ── FIELD NOTES TAB ─────────────────────────────── */}
       {activeTab === 'sources' && (
         <div style={{ flex:1, overflowY:'auto', padding:'20px 24px', background:isDark?'#18140e':'#f5f0e4' }}>
@@ -469,62 +661,96 @@ export default function TopicPage({
       )}
 
       {/* ── CONNECTIONS TAB ─────────────────────────────── */}
-      {activeTab === 'connections' || activeTab === 'debates' && (
-        <div style={{ flex:1, overflow:'hidden', display:'grid', gridTemplateColumns:'1fr 1fr', background:isDark?'#18140e':'#f5f0e4' }}>
+      {activeTab === 'connections' && (
+        <>
+          <div style={{ flex:1, overflow:'hidden', display:'grid', gridTemplateColumns:'1fr 1fr', background:isDark?'#18140e':'#f5f0e4' }}>
 
-          {/* Linked investigations */}
-          <div style={{ overflowY:'auto', padding:'20px 24px', borderRight:'1px solid var(--paper-3)' }}>
-            <div style={{ fontSize:8, color:'var(--ink-4)', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:14, paddingBottom:8, borderBottom:'1px dashed var(--paper-3)' }}>
-              ⊛ Related investigations — {linkedInvestigations.length}
-            </div>
-            {linkedInvestigations.length === 0 ? (
-              <div style={{ fontSize:12, color:'var(--ink-4)', fontStyle:'italic', lineHeight:1.75, paddingLeft:8, borderLeft:'2px solid var(--paper-3)' }}>
-                No investigations share tags with this subject yet.<br/>
-                <span style={{ fontSize:10, fontFamily:'var(--font-mono)', fontStyle:'normal', opacity:0.6 }}>Tag your investigations to surface connections.</span>
+            {/* Linked investigations */}
+            <div style={{ overflowY:'auto', padding:'20px 24px', borderRight:'1px solid var(--paper-3)' }}>
+              <div style={{ fontSize:8, color:'var(--ink-4)', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:14, paddingBottom:8, borderBottom:'1px dashed var(--paper-3)' }}>
+                ⊛ Related investigations — {linkedInvestigations.length}
               </div>
-            ) : linkedInvestigations.map(inv => (
-              <div key={inv.id}
-                style={{ background:'var(--paper-card)', border:'1px solid var(--paper-3)', borderLeft:'3px solid var(--accent)', borderRadius:2, padding:'10px 13px', marginBottom:8, cursor:'pointer', boxShadow:'0 1px 4px rgba(100,70,20,0.07)', transition:'transform 0.1s' }}
-                onMouseEnter={e=>e.currentTarget.style.transform='translateX(2px)'}
-                onMouseLeave={e=>e.currentTarget.style.transform='none'}>
-                <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:4 }}>
-                  {inv.caseNumber && <span style={{ fontSize:8, color:'var(--accent)', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.09em' }}>{inv.caseNumber}</span>}
-                  <span style={{ fontSize:9, padding:'1px 6px', borderRadius:2, background:inv.status==='active'?'#e4f4ec':'var(--paper-2)', color:inv.status==='active'?'#2a6a4a':'var(--ink-4)', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.07em' }}>{inv.status?.toUpperCase()}</span>
+              {linkedInvestigations.length === 0 ? (
+                <div style={{ fontSize:12, color:'var(--ink-4)', fontStyle:'italic', lineHeight:1.75, paddingLeft:8, borderLeft:'2px solid var(--paper-3)' }}>
+                  No investigations share tags with this subject yet.<br/>
+                  <span style={{ fontSize:10, fontFamily:'var(--font-mono)', fontStyle:'normal', opacity:0.6 }}>Tag your investigations to surface connections.</span>
                 </div>
-                <div style={{ fontSize:13, fontWeight:500, color:'var(--ink)', fontFamily:'var(--font-display)', fontStyle:'italic', lineHeight:1.3, marginBottom:inv.summary?4:0 }}>{inv.title}</div>
-                {inv.summary && <p style={{ fontSize:11, color:'var(--ink-3)', lineHeight:1.55, fontStyle:'italic', margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{inv.summary}</p>}
-              </div>
-            ))}
-          </div>
-
-          {/* Linked timeline events */}
-          <div style={{ overflowY:'auto', padding:'20px 24px' }}>
-            <div style={{ fontSize:8, color:'var(--ink-4)', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:14, paddingBottom:8, borderBottom:'1px dashed var(--paper-3)' }}>
-              ↔ Related timeline events — {linkedEvents.length}
-            </div>
-            {linkedEvents.length === 0 ? (
-              <div style={{ fontSize:12, color:'var(--ink-4)', fontStyle:'italic', lineHeight:1.75, paddingLeft:8, borderLeft:'2px solid var(--paper-3)' }}>
-                No timeline events share tags with this subject yet.<br/>
-                <span style={{ fontSize:10, fontFamily:'var(--font-mono)', fontStyle:'normal', opacity:0.6 }}>Tag your events to surface connections.</span>
-              </div>
-            ) : linkedEvents.map(ev => {
-              const evBooks = books.filter(b=>(ev.bookIds||[]).includes(b.id));
-              return (
-                <div key={ev.id} style={{ background:'var(--paper-card)', border:'1px solid var(--paper-3)', borderLeft:'3px solid var(--amber)', borderRadius:2, padding:'10px 13px', marginBottom:8, boxShadow:'0 1px 4px rgba(100,70,20,0.07)', transition:'transform 0.1s' }}
+              ) : linkedInvestigations.map(inv => (
+                <div key={inv.id}
+                  style={{ background:'var(--paper-card)', border:'1px solid var(--paper-3)', borderLeft:'3px solid var(--accent)', borderRadius:2, padding:'10px 13px', marginBottom:8, cursor:'pointer', boxShadow:'0 1px 4px rgba(100,70,20,0.07)', transition:'transform 0.1s' }}
                   onMouseEnter={e=>e.currentTarget.style.transform='translateX(2px)'}
                   onMouseLeave={e=>e.currentTarget.style.transform='none'}>
-                  <div style={{ fontSize:9, color:'var(--amber)', fontFamily:'var(--font-mono)', fontStyle:'normal', marginBottom:3 }}>{ev.dateRaw}</div>
-                  <div style={{ fontSize:13, fontWeight:500, color:'var(--ink)', fontFamily:'var(--font-display)', fontStyle:'italic', lineHeight:1.3, marginBottom:4 }}>{ev.title}</div>
-                  {evBooks.length > 0 && (
-                    <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
-                      {evBooks.map(b=><span key={b.id} style={{ display:'flex', alignItems:'center', gap:3, fontSize:9, color:b.color, fontStyle:'italic' }}><div style={{ width:4, height:4, borderRadius:'50%', background:b.color }} />{b.title}</span>)}
-                    </div>
-                  )}
+                  <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:4 }}>
+                    {inv.caseNumber && <span style={{ fontSize:8, color:'var(--accent)', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.09em' }}>{inv.caseNumber}</span>}
+                    <span style={{ fontSize:9, padding:'1px 6px', borderRadius:2, background:inv.status==='active'?'#e4f4ec':'var(--paper-2)', color:inv.status==='active'?'#2a6a4a':'var(--ink-4)', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.07em' }}>{inv.status?.toUpperCase()}</span>
+                  </div>
+                  <div style={{ fontSize:13, fontWeight:500, color:'var(--ink)', fontFamily:'var(--font-display)', fontStyle:'italic', lineHeight:1.3, marginBottom:inv.summary?4:0 }}>{inv.title}</div>
+                  {inv.summary && <p style={{ fontSize:11, color:'var(--ink-3)', lineHeight:1.55, fontStyle:'italic', margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{inv.summary}</p>}
                 </div>
-              );
-            })}
+              ))}
+            </div>
+
+            {/* Linked timeline events */}
+            <div style={{ overflowY:'auto', padding:'20px 24px' }}>
+              <div style={{ fontSize:8, color:'var(--ink-4)', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:14, paddingBottom:8, borderBottom:'1px dashed var(--paper-3)' }}>
+                ↔ Related timeline events — {linkedEvents.length}
+              </div>
+              {linkedEvents.length === 0 ? (
+                <div style={{ fontSize:12, color:'var(--ink-4)', fontStyle:'italic', lineHeight:1.75, paddingLeft:8, borderLeft:'2px solid var(--paper-3)' }}>
+                  No timeline events share tags with this subject yet.<br/>
+                  <span style={{ fontSize:10, fontFamily:'var(--font-mono)', fontStyle:'normal', opacity:0.6 }}>Tag your events to surface connections.</span>
+                </div>
+              ) : linkedEvents.map(ev => {
+                const evBooks = books.filter(b=>(ev.bookIds||[]).includes(b.id));
+                return (
+                  <div key={ev.id} style={{ background:'var(--paper-card)', border:'1px solid var(--paper-3)', borderLeft:'3px solid var(--amber)', borderRadius:2, padding:'10px 13px', marginBottom:8, boxShadow:'0 1px 4px rgba(100,70,20,0.07)', transition:'transform 0.1s' }}
+                    onMouseEnter={e=>e.currentTarget.style.transform='translateX(2px)'}
+                    onMouseLeave={e=>e.currentTarget.style.transform='none'}>
+                    <div style={{ fontSize:9, color:'var(--amber)', fontFamily:'var(--font-mono)', fontStyle:'normal', marginBottom:3 }}>{ev.dateRaw}</div>
+                    <div style={{ fontSize:13, fontWeight:500, color:'var(--ink)', fontFamily:'var(--font-display)', fontStyle:'italic', lineHeight:1.3, marginBottom:4 }}>{ev.title}</div>
+                    {evBooks.length > 0 && (
+                      <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                        {evBooks.map(b=><span key={b.id} style={{ display:'flex', alignItems:'center', gap:3, fontSize:9, color:b.color, fontStyle:'italic' }}><div style={{ width:4, height:4, borderRadius:'50%', background:b.color }} />{b.title}</span>)}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+
+          {linkedAnatomy.length > 0 && (
+            <div style={{ padding:'16px 24px', borderTop:'1px solid var(--paper-3)', background:isDark?'#18140e':'#f5f0e4', flexShrink:0 }}>
+              <div style={{ fontSize:8, color:'var(--ink-4)', fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:12, paddingBottom:8, borderBottom:'1px dashed var(--paper-3)' }}>
+                ◈ Teatro Anatomico — {linkedAnatomy.length} linked entr{linkedAnatomy.length === 1 ? 'y' : 'ies'}
+              </div>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+                {linkedAnatomy.map(a => {
+                  const typeColor = a.type === 'concept' ? '#2a4a7a' : a.type === 'scholar' ? '#4a2a6a' : '#1a5c3a';
+                  const typeIcon  = a.type === 'concept' ? '◈' : a.type === 'scholar' ? '⊕' : '✦';
+                  return (
+                    <div key={a.id} style={{ background:'var(--paper-card)', border:'1px solid var(--paper-3)', borderLeft:`3px solid ${typeColor}`, borderRadius:2, padding:'8px 12px', minWidth:160, maxWidth:280 }}>
+                      <div style={{ fontSize:8, color:typeColor, fontFamily:'var(--font-mono)', fontStyle:'normal', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:3 }}>{typeIcon} {a.type}</div>
+                      <div style={{ fontSize:11, fontFamily:'var(--font-serif)', fontWeight:600, color:'var(--ink)', letterSpacing:'0.02em', textTransform:'uppercase', marginBottom:a.definition?4:0 }}>{a.title}</div>
+                      {a.definition && <div style={{ fontSize:10, color:'var(--ink-4)', fontStyle:'italic', lineHeight:1.5, marginBottom:a.keyQuote?6:0 }}>{a.definition.slice(0,80)}{a.definition.length>80?'…':''}</div>}
+                      {a.keyQuote && (
+                        <div style={{ fontSize:10, color:'var(--ink-3)', fontStyle:'italic', lineHeight:1.55, borderLeft:`2px solid ${typeColor}44`, paddingLeft:7, marginTop:4 }}>
+                          "{a.keyQuote.slice(0,100)}{a.keyQuote.length>100?'…':''}"
+                          {a.keyQuoteAttribution && <div style={{ fontSize:8, color:typeColor, fontFamily:'var(--font-mono)', fontStyle:'normal', marginTop:3, opacity:0.7 }}>{a.keyQuoteAttribution}</div>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── EVIDENCE TAB ────────────────────────────────── */}
+      {activeTab === 'evidence' && (
+        <EvidenceTab topic={topic} onUpdate={onUpdate} isDark={isDark} />
       )}
 
       {/* ── ANALYSIS TAB ────────────────────────────────── */}
@@ -571,5 +797,14 @@ export default function TopicPage({
         </div>
       )}
     </div>
+
+    {logCapture && onAddLog && (
+      <LogCaptureModal
+        context={logCapture.context}
+        prefill={logCapture.prefill}
+        onSubmit={entry => { onAddLog(entry); setLogCapture(null); }}
+        onClose={() => setLogCapture(null)} />
+    )}
+  </>
   );
 }

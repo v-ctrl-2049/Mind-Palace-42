@@ -31,7 +31,7 @@ function SectionLabel({ children }) {
   );
 }
 
-export default function MindMapTopicPage({ topic, allNodes, allEdges, books, nodeTypes, edgeTypes, onBack, onEditNode, onSelectNode, onManageNodeTypes, onManageEdgeTypes, onUpdateNodes, onUpdateEdges }) {
+export default function MindMapTopicPage({ topic, allNodes, allEdges, books, nodeTypes, edgeTypes, onBack, onEditNode, onSelectNode, onManageNodeTypes, onManageEdgeTypes, onUpdateNodes, onUpdateEdges, onNavigateToTopic }) {
   const nt = nodeTypes.find(t => t.id === 'topic') || { color: '#2c3e50', bg: '#e8edf2', label: 'Topic' };
   const [activeTab, setActiveTab]     = useState('nodes'); // 'nodes' | 'development' | 'books'
   const [editingNode, setEditingNode] = useState(null);
@@ -144,6 +144,14 @@ export default function MindMapTopicPage({ topic, allNodes, allEdges, books, nod
         <span style={{ fontSize: 10, padding: '2px 9px', borderRadius: 10, background: nt.color + '22', color: nt.color, fontFamily: 'var(--font-mono)', fontStyle: 'normal', letterSpacing: '0.05em' }}>TOPIC</span>
         <span style={{ fontSize: 11, color: 'var(--ink-4)' }}>{allRelated.size} nodes · {comparisonBooks.length} books</span>
         <CopyBtn text={exportText()} />
+        {onNavigateToTopic && (
+          <button onClick={() => onNavigateToTopic(topic.label)}
+            style={{ fontSize: 11, padding: '5px 12px', borderRadius: 6, border: `1px solid ${nt.color}55`, color: nt.color, background: nt.color + '11', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontStyle: 'normal', letterSpacing: '0.05em' }}
+            onMouseEnter={e => e.currentTarget.style.background = nt.color + '22'}
+            onMouseLeave={e => e.currentTarget.style.background = nt.color + '11'}>
+            The Stacks →
+          </button>
+        )}
         <button onClick={() => onEditNode(topic)} style={{ fontSize: 12, padding: '5px 12px', borderRadius: 6, border: '1px solid var(--paper-3)', color: 'var(--ink-2)', background: 'transparent', cursor: 'pointer' }}>Edit topic</button>
       </div>
 
@@ -152,7 +160,9 @@ export default function MindMapTopicPage({ topic, allNodes, allEdges, books, nod
         <div style={{ display: 'flex' }}>
           {[
             { id: 'nodes',       label: '◈ Nodes' },
-            { id: 'development', label: '↔ Development' },
+            { id: 'development', label: '↔ Signal' },
+            { id: 'books',       label: '▣ Sources' },
+            { id: 'connections', label: '⊛ Synapses' },
             { id: 'books',       label: '◎ Book perspectives' },
             { id: 'connections', label: '⊛ Connections' },
           ].map(tab => (

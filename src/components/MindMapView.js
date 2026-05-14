@@ -132,7 +132,7 @@ function BrainNode({ node, edges, nodeTypes, selected, books, onMouseDown, onDou
           fill={nt.color} opacity={0.5}
           fontFamily="DM Mono, monospace"
           style={{ pointerEvents: 'none' }}>
-          double-click → open
+          double-click → The Stacks
         </text>
       )}
     </g>
@@ -204,7 +204,7 @@ function BrainEdge({ edge, srcNode, tgtNode, selected, edgeTypes, allEdges, onSe
 }
 
 // ── Main MindMapView ─────────────────────────────────────────────
-export default function MindMapView({ nodes, edges, books, nodeTypes, edgeTypes, onUpdateNodes, onUpdateEdges, onManageNodeTypes, onManageEdgeTypes }) {
+export default function MindMapView({ nodes, edges, books = [], topics = [], nodeTypes, edgeTypes, onUpdateNodes, onUpdateEdges, onManageNodeTypes, onManageEdgeTypes, onNavigateToTopic }) {
   const svgRef = useRef(null);
   const [transform, setTransform]       = useState({ x: 80, y: 60, scale: 1 });
   const [selectedNodeId, setSelectedNodeId] = useState(null);
@@ -311,6 +311,7 @@ export default function MindMapView({ nodes, edges, books, nodeTypes, edgeTypes,
         onManageEdgeTypes={onManageEdgeTypes}
         onUpdateNodes={onUpdateNodes}
         onUpdateEdges={onUpdateEdges}
+        onNavigateToTopic={onNavigateToTopic}
       />
     );
   }
@@ -352,9 +353,9 @@ export default function MindMapView({ nodes, edges, books, nodeTypes, edgeTypes,
           <div style={{ marginLeft:'auto', display:'flex', gap:6, alignItems:'center' }}>
             {/* Tab toggle */}
             <div style={{ display:'flex', border:'1px solid #2a2824', borderRadius:2, overflow:'hidden' }}>
-              {[['map','⊛ Map'],['connections','↔ Connections']].map(([t,label]) => (
+              {[['shelf','▣ Shelf'],['map','⊛ Map'],['connections','↔ Connections']].map(([t,label]) => (
                 <button key={t} onClick={() => setActiveTab(t)}
-                  style={{ padding:'5px 12px', fontSize:10, border:'none', borderRight:t==='map'?'1px solid #2a2824':'none', background:activeTab===t?'#1a1814':'transparent', color:activeTab===t?'#e8e4dc':'#5a5650', cursor:'pointer', fontFamily:'DM Mono, monospace', letterSpacing:'0.06em' }}>
+                  style={{ padding:'5px 12px', fontSize:10, border:'none', borderRight:t!=='connections'?'1px solid #2a2824':'none', background:activeTab===t?'#1a1814':'transparent', color:activeTab===t?'#e8e4dc':'#5a5650', cursor:'pointer', fontFamily:'DM Mono, monospace', letterSpacing:'0.06em' }}>
                   {label}
                 </button>
               ))}
@@ -375,6 +376,15 @@ export default function MindMapView({ nodes, edges, books, nodeTypes, edgeTypes,
           </div>
         </div>
       </div>
+
+      {/* ── SHELF TAB ────────────────────────────────────── */}
+      {activeTab === 'shelf' && (
+        <div style={{ flex:1, position:'relative', overflow:'hidden' }}>
+          <MetaShelf topics={topics} nodes={nodes} books={books} nodeTypes={nodeTypes}
+            onSelectNode={id => { setSelectedNodeId(id); setActiveTab('map'); }}
+            onAddNode={() => { handleAddTopic(); setActiveTab('map'); }} />
+        </div>
+      )}
 
       {/* ── MAP TAB ──────────────────────────────────────── */}
       {activeTab === 'map' && (
@@ -457,12 +467,12 @@ export default function MindMapView({ nodes, edges, books, nodeTypes, edgeTypes,
           </g>
         </svg>
 
-        {/* Empty state */}
+        {/* Empty state — no nodes yet */}
         {nodes.length === 0 && (
           <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, pointerEvents:'none' }}>
             <div style={{ fontSize:48, opacity:0.08, color:'#00ff41' }}>◉</div>
             <div style={{ fontSize:15, color:'#3a3830', fontStyle:'italic', fontFamily:'Lora, Georgia, serif' }}>The construct is empty</div>
-            <div style={{ fontSize:11, color:'#2a2820', fontFamily:'DM Mono, monospace', letterSpacing:'0.06em' }}>+ NODE to initialise the first memory</div>
+            <div style={{ fontSize:11, color:'#2a2820', fontFamily:'DM Mono, monospace', letterSpacing:'0.06em' }}>+ NODE to initialise · or use ▣ Shelf view</div>
           </div>
         )}
 
@@ -555,5 +565,151 @@ function ToolBtn({ onClick, children }) {
       onMouseLeave={e => { e.currentTarget.style.borderColor='#2a2824'; e.currentTarget.style.color='#6a6660'; }}>
       {children}
     </button>
+  );
+}
+
+// ── META Shelf ────────────────────────────────────────────────────
+// Topics displayed as books on a dark shelf — entry point to the map
+function MetaShelf({ topics = [], nodes, books = [], nodeTypes, onSelectNode, onAddNode }) {
+  const LOEB_COLORS = ['#7a4a2a','#2a4a7a','#4a6a3a','#8a2a2a','#4a2a6a','#2a6a6a','#6a5a2a','#3a3a5a'];
+  const NEURO_COLOR = '#0a1a0a';
+
+  // Match topics to META nodes
+  const topicNodes = nodes.filter(n => n.type === 'topic');
+  const matchedTopics = topics.map(t => ({
+    topic: t,
+    node: topicNodes.find(n =>
+      n.label?.toLowerCase() === t.title?.toLowerCase() ||
+      n.label?.toLowerCase().includes(t.title?.toLowerCase().slice(0, 6))
+    ),
+  }));
+
+  const hasTopics = topics.length > 0;
+
+  return (
+    <div style={{ position:'absolute', inset:0, background:'#0a0908', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+      {/* Shelf header */}
+      <div style={{ padding:'20px 32px 12px', flexShrink:0 }}>
+        <div style={{ fontSize:7, color:'#00ff41', fontFamily:'DM Mono, monospace', letterSpacing:'0.18em', textTransform:'uppercase', marginBottom:4, opacity:0.6 }}>
+          Neural construct · Library index
+        </div>
+        <div style={{ fontSize:13, fontFamily:'DM Mono, monospace', color:'#e8e4dc', letterSpacing:'0.12em', opacity:0.5 }}>
+          {hasTopics ? `${topics.length} topic${topics.length!==1?'s':''} in the construct` : 'The construct is empty'}
+        </div>
+      </div>
+
+      {/* The shelf */}
+      <div style={{ flex:1, overflowY:'auto', padding:'8px 32px 32px' }}>
+        {!hasTopics ? (
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:16 }}>
+            <div style={{ fontSize:40, opacity:0.06, color:'#00ff41' }}>▣</div>
+            <div style={{ fontSize:13, color:'#3a3830', fontStyle:'italic', fontFamily:'Lora, Georgia, serif' }}>No topics in The Stacks yet</div>
+            <div style={{ fontSize:10, color:'#2a2820', fontFamily:'DM Mono, monospace', letterSpacing:'0.06em' }}>Create topics in The Stacks to see them here</div>
+          </div>
+        ) : (
+          <>
+            {/* Shelf surface */}
+            <div style={{ position:'relative' }}>
+              {/* Books row */}
+              <div style={{ display:'flex', flexWrap:'wrap', gap:6, alignItems:'flex-end', paddingBottom:8, borderBottom:'3px solid #2a2018' }}>
+                {matchedTopics.map(({ topic, node }, i) => {
+                  const color = node
+                    ? (nodeTypes.find(t => t.id === node.type)?.color || '#00ff41')
+                    : LOEB_COLORS[i % LOEB_COLORS.length];
+                  const height = 80 + (topic.title.length % 3) * 16;
+                  const width  = 22 + (topic.title.length % 4) * 4;
+                  const hasNode = !!node;
+
+                  return (
+                    <div key={topic.id}
+                      onClick={() => hasNode && onSelectNode(node.id)}
+                      title={`${topic.title}${hasNode ? ' — in META' : ' — not yet mapped'}`}
+                      style={{ cursor: hasNode ? 'pointer' : 'default', position:'relative', transition:'transform 0.15s', flexShrink:0 }}
+                      onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-6px)'}
+                      onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
+
+                      {/* Book spine */}
+                      <div style={{
+                        width, height,
+                        background: hasNode ? color + '22' : '#1a1814',
+                        border: `1px solid ${hasNode ? color : '#2a2824'}`,
+                        borderBottom: 'none',
+                        borderRadius:'1px 1px 0 0',
+                        display:'flex', flexDirection:'column',
+                        alignItems:'center', justifyContent:'center',
+                        padding:'4px 2px',
+                        boxShadow: hasNode ? `0 0 8px ${color}33, inset 0 0 12px ${color}11` : 'none',
+                        position:'relative', overflow:'hidden',
+                      }}>
+                        {/* Glow line at top for mapped nodes */}
+                        {hasNode && <div style={{ position:'absolute', top:0, left:0, right:0, height:1, background:color, opacity:0.8 }} />}
+
+                        {/* Title — rotated */}
+                        <div style={{
+                          fontSize: 8,
+                          color: hasNode ? color : '#3a3830',
+                          fontFamily: 'Lora, Georgia, serif',
+                          fontStyle: 'italic',
+                          writingMode: 'vertical-rl',
+                          textOrientation: 'mixed',
+                          transform: 'rotate(180deg)',
+                          letterSpacing: '0.04em',
+                          lineHeight: 1.2,
+                          maxHeight: height - 12,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          textShadow: hasNode ? `0 0 4px ${color}66` : 'none',
+                        }}>
+                          {topic.title}
+                        </div>
+
+                        {/* Domain dot */}
+                        {topic.domains?.[0] && (
+                          <div style={{ position:'absolute', bottom:3, width:4, height:4, borderRadius:'50%', background:color, opacity:0.6 }} />
+                        )}
+                      </div>
+
+                      {/* Book base */}
+                      <div style={{ width, height:3, background: hasNode ? color + '44' : '#2a2824', borderRadius:'0 0 1px 1px' }} />
+
+                      {/* Not-in-META indicator */}
+                      {!hasNode && (
+                        <div style={{ position:'absolute', top:-8, left:'50%', transform:'translateX(-50%)', fontSize:7, color:'#3a3830', fontFamily:'DM Mono, monospace', whiteSpace:'nowrap' }}>
+                          ·
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Add node prompt */}
+                <div onClick={onAddNode}
+                  style={{ width:26, height:80, border:'1px dashed #2a2824', borderBottom:'none', borderRadius:'1px 1px 0 0', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0, transition:'all 0.15s' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor='#00ff4144'; e.currentTarget.style.background='#00ff410a'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor='#2a2824'; e.currentTarget.style.background='transparent'; }}>
+                  <span style={{ fontSize:12, color:'#2a2820', writingMode:'vertical-rl' }}>+</span>
+                </div>
+              </div>
+
+              {/* Shelf shadow */}
+              <div style={{ height:6, background:'linear-gradient(to bottom, #1a1208, transparent)', marginBottom:16 }} />
+            </div>
+
+            {/* Legend */}
+            <div style={{ display:'flex', gap:16, marginTop:8 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:8, color:'#3a3830', fontFamily:'DM Mono, monospace' }}>
+                <div style={{ width:8, height:8, border:'1px solid #00ff41', boxShadow:'0 0 4px #00ff4133' }} />
+                In META
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:8, color:'#3a3830', fontFamily:'DM Mono, monospace' }}>
+                <div style={{ width:8, height:8, border:'1px solid #2a2824' }} />
+                Not yet mapped
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }

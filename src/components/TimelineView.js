@@ -482,7 +482,7 @@ function GapsTab({ events, books, eventTypes, onSelect, onTagClick }) {
 }
 
 // ══ MAIN TIMELINE VIEW ════════════════════════════════════════════
-export default function TimelineView({ events, books, eventTypes, onAdd, onEdit, onUpdate, onManageTypes }) {
+export default function TimelineView({ events, books, eventTypes, onAdd, onEdit, onUpdate, onManageTypes, onAddLog }) {
   const [activeTab, setActiveTab]       = useState('chronicle');
   const [regionFilter, setRegionFilter] = useState([]);
   const [typeFilter,   setTypeFilter]   = useState([]);
@@ -556,7 +556,7 @@ export default function TimelineView({ events, books, eventTypes, onAdd, onEdit,
   if (activeEvent) {
     return (
       <EventDetailPage event={activeEvent} books={books} eventTypes={eventTypes}
-        onUpdate={onUpdate} onBack={() => setActiveEventId(null)} />
+        onUpdate={onUpdate} onBack={() => setActiveEventId(null)} onAddLog={onAddLog} />
     );
   }
 

@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { CompactEditor, stripHtml } from './SimpleEditor';
+import LogCaptureModal from './LogCaptureModal';
 
 const isRetro = (t) => t.source === 'archive';
 
@@ -62,7 +63,7 @@ function CopyBtn({ text, label = 'COPY' }) {
   );
 }
 
-function NoteCard({ thought, thoughtTypes, onDelete, onUpdate }) {
+function NoteCard({ thought, thoughtTypes, onDelete, onUpdate, onCite }) {
   const typeInfo = thoughtTypes.find(t => t.id === thought.type) || { color: '#7a6a52', bg: '#f0e8d8', label: thought.type || 'note' };
   const retro = isRetro(thought);
   const copyText = [thought.quote && `"${thought.quote}"`, stripHtml(thought.text)].filter(Boolean).join('\n\n');
@@ -130,6 +131,13 @@ function NoteCard({ thought, thoughtTypes, onDelete, onUpdate }) {
       {!editing && (
         <div className="note-actions" style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 5, opacity: 0, transition: 'opacity 0.15s' }}>
           <CopyBtn text={copyText} />
+          {onCite && (thought.quote || thought.text) && (
+            <button onClick={() => onCite(thought)}
+              style={{ fontSize: 10, color: 'var(--ink-4)', background: 'none', border: '1px solid var(--paper-3)', borderRadius: 5, padding: '2px 8px', cursor: 'pointer' }}
+              title="Cite this — save to Reading Log"
+              onMouseEnter={e => e.currentTarget.style.color = '#8a6a20'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--ink-4)'}>❝</button>
+          )}
           <button onClick={() => setEditing(true)}
             style={{ fontSize: 10, color: 'var(--ink-4)', background: 'none', border: '1px solid var(--paper-3)', borderRadius: 5, padding: '2px 8px', cursor: 'pointer' }}
             onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
@@ -224,12 +232,22 @@ function RetroCaptureBar({ book, thoughtTypes, onAdd }) {
   );
 }
 
-function BookArchivePanel({ book, thoughts, thoughtTypes, onClose, onAddThought, onDeleteThought, onUpdateThought }) {
+function BookArchivePanel({ book, thoughts, thoughtTypes, onClose, onAddThought, onDeleteThought, onUpdateThought, onAddLog }) {
   const [filterType, setFilterType] = useState('all');
   const [search, setSearch] = useState('');
   const [copied, setCopied] = useState(false);
   const [flickering, setFlickering] = React.useState(false);
   const triggerFlicker = () => { setFlickering(true); setTimeout(() => setFlickering(false), 180); };
+  const [logCapture, setLogCapture] = useState(null);
+
+  const handleCite = (thought) => {
+    const book_title = book.title;
+    const attribution = `${book.author ? book.author + ', ' : ''}${book_title}${thought.page ? `, p.${thought.page}` : ''}`;
+    setLogCapture({
+      context: { label: book_title, sourceType: 'book', sourceId: book.id, sourceName: book_title },
+      prefill: { type: 'quote', quote: thought.quote || thought.text || '', attribution },
+    });
+  };
 
   const allBookThoughts = thoughts.filter(t => t.bookId === book.id);
   const liveNotes  = allBookThoughts.filter(t => !isRetro(t));
@@ -272,6 +290,7 @@ function BookArchivePanel({ book, thoughts, thoughtTypes, onClose, onAddThought,
   };
 
   return (
+  <>
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <LoadFlicker show={flickering} />
       {/* ── MANUSCRIPT RECORD HEADER ───────────────────── */}
@@ -343,7 +362,7 @@ function BookArchivePanel({ book, thoughts, thoughtTypes, onClose, onAddThought,
               Reading notes <span style={{ fontWeight: 400 }}>({filteredLive.length})</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {filteredLive.map(t => <NoteCard key={t.id} thought={t} thoughtTypes={thoughtTypes} onDelete={onDeleteThought} onUpdate={onUpdateThought} />)}
+              {filteredLive.map(t => <NoteCard key={t.id} thought={t} thoughtTypes={thoughtTypes} onDelete={onDeleteThought} onUpdate={onUpdateThought} onCite={onAddLog ? handleCite : null} />)}
             </div>
           </div>
         )}
@@ -365,7 +384,7 @@ function BookArchivePanel({ book, thoughts, thoughtTypes, onClose, onAddThought,
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {filteredRetro.map(t => <NoteCard key={t.id} thought={t} thoughtTypes={thoughtTypes} onDelete={onDeleteThought} onUpdate={onUpdateThought} />)}
+              {filteredRetro.map(t => <NoteCard key={t.id} thought={t} thoughtTypes={thoughtTypes} onDelete={onDeleteThought} onUpdate={onUpdateThought} onCite={onAddLog ? handleCite : null} />)}
             </div>
           )}
         </div>
@@ -377,6 +396,15 @@ function BookArchivePanel({ book, thoughts, thoughtTypes, onClose, onAddThought,
 
       <RetroCaptureBar book={book} thoughtTypes={thoughtTypes} onAdd={onAddThought} />
     </div>
+
+    {logCapture && onAddLog && (
+      <LogCaptureModal
+        context={logCapture.context}
+        prefill={logCapture.prefill}
+        onSubmit={entry => { onAddLog(entry); setLogCapture(null); }}
+        onClose={() => setLogCapture(null)} />
+    )}
+  </>
   );
 }
 
@@ -427,7 +455,7 @@ function ItemCard({ item, thoughts, onSelect }) {
 }
 
 // ── Main ArchiveView ──────────────────────────────────────────────
-export default function ArchiveView({ books, articles = [], thoughts, thoughtTypes, onAddThought, onDeleteThought, onUpdateThought, initialItemId, onClearInitial }) {
+export default function ArchiveView({ books, articles = [], thoughts, thoughtTypes, onAddThought, onDeleteThought, onUpdateThought, initialItemId, onClearInitial, onAddLog }) {
   const [selectedBookId, setSelectedBookId] = useState(initialItemId || null);
   const [search, setSearch]     = useState('');
   const [sortBy, setSortBy]     = useState('finished');
@@ -467,6 +495,7 @@ export default function ArchiveView({ books, articles = [], thoughts, thoughtTyp
         onAddThought={onAddThought}
         onDeleteThought={onDeleteThought}
         onUpdateThought={onUpdateThought}
+        onAddLog={onAddLog}
       />
     );
   }

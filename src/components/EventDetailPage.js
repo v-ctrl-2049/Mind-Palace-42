@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { parseEventDate, getRegion } from '../data/timeline';
 import { v4 as uuidv4 } from 'uuid';
+import LogCaptureModal from './LogCaptureModal';
 
 const RULED = 'repeating-linear-gradient(transparent, transparent 24px, rgba(100,80,50,0.055) 24px, rgba(100,80,50,0.055) 25px)';
 
@@ -81,9 +82,10 @@ function SourceCard({ bookNote, book, showIndex, index }) {
   );
 }
 
-export default function EventDetailPage({ event, books, eventTypes, onUpdate, onBack }) {
+export default function EventDetailPage({ event, books, eventTypes, onUpdate, onBack, onAddLog }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft]     = useState({ ...event, bookNotes: event.bookNotes || [] });
+  const [logCapture, setLogCapture] = useState(null);
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
   const parsed      = parseEventDate(event.dateRaw);
@@ -133,6 +135,7 @@ export default function EventDetailPage({ event, books, eventTypes, onUpdate, on
   };
 
   return (
+  <>
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: isDark ? '#18140e' : '#f5f0e4', fontFamily: 'var(--font-serif)' }}>
 
       {/* ── FIELD REPORT COVER ──────────────────────────────── */}
@@ -178,6 +181,14 @@ export default function EventDetailPage({ event, books, eventTypes, onUpdate, on
           <span style={{ color: region.color, opacity: 0.9 }}>{region.label?.toUpperCase()}</span>
           <div style={{ flex: 1 }} />
           <span style={{ color: '#e87070', letterSpacing: '0.14em', opacity: 0.9, fontSize: 7 }}>⚿ RESTRICTED</span>
+          {onAddLog && (
+            <button onClick={() => setLogCapture({ context: { label: event.title, sourceType: 'event', sourceId: event.id, sourceName: event.title }, prefill: {} })}
+              style={{ fontSize: 8, color: '#7ab8a0', cursor: 'pointer', background: 'none', border: '1px solid #3a6050', borderRadius: 2, padding: '2px 9px', fontFamily: 'var(--font-mono)', fontStyle: 'normal', letterSpacing: '0.08em' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#a0d8c0'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#3a6050'; }}>
+              → Log
+            </button>
+          )}
           <button onClick={onBack}
             style={{ fontSize: 8, color: '#7ab8a0', cursor: 'pointer', background: 'none', border: '1px solid #3a6050', borderRadius: 2, padding: '2px 9px', fontFamily: 'var(--font-mono)', fontStyle: 'normal', letterSpacing: '0.08em' }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = '#a0d8c0'; e.currentTarget.style.color = '#d4f0e8'; }}
@@ -353,5 +364,14 @@ export default function EventDetailPage({ event, books, eventTypes, onUpdate, on
         )}
       </div>
     </div>
+
+    {logCapture && onAddLog && (
+      <LogCaptureModal
+        context={logCapture.context}
+        prefill={logCapture.prefill}
+        onSubmit={entry => { onAddLog(entry); setLogCapture(null); }}
+        onClose={() => setLogCapture(null)} />
+    )}
+  </>
   );
 }

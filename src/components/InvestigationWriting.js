@@ -305,13 +305,12 @@ export default function InvestigationWriting({ inv, books, onUpdate }) {
               {/* Section header */}
               <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--paper-3)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, background: 'var(--paper-2)' }}>
                 <span style={{ fontSize: 14, color: st.color }}>{st.icon}</span>
-                <div style={{ flex: 1 }}>
+                <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{activeSection.title}</div>
                   <div style={{ fontSize: 10, color: st.color, fontFamily: 'var(--font-mono)', fontStyle: 'normal', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{st.label}</div>
                 </div>
-                <span style={{ fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', fontStyle: 'normal' }}>{wordCount} words</span>
                 <button onClick={() => setShowQuotePicker(true)}
-                  style={{ fontSize: 11, padding: '4px 12px', borderRadius: 6, border: `1px solid ${st.color}44`, color: st.color, background: st.color + '11', cursor: 'pointer' }}
+                  style={{ fontSize: 11, padding: '4px 12px', borderRadius: 6, border: `1px solid ${st.color}44`, color: st.color, background: st.color + '11', cursor: 'pointer', marginLeft: 8 }}
                   onMouseEnter={e => e.currentTarget.style.background = st.color + '22'}
                   onMouseLeave={e => e.currentTarget.style.background = st.color + '11'}>
                   ⊕ pull quote
@@ -320,6 +319,8 @@ export default function InvestigationWriting({ inv, books, onUpdate }) {
                   style={{ fontSize: 11, padding: '4px 12px', borderRadius: 6, border: '1px solid var(--paper-3)', color: copied ? 'var(--green)' : 'var(--ink-3)', background: 'transparent', cursor: 'pointer' }}>
                   {copied ? '✓ copied' : 'export draft'}
                 </button>
+                <div style={{ flex: 1 }} />
+                <span style={{ fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', fontStyle: 'normal' }}>{wordCount} words</span>
               </div>
 
               {/* Section note (from arg map) */}
@@ -354,6 +355,7 @@ export default function InvestigationWriting({ inv, books, onUpdate }) {
               {/* Draft editor */}
               <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
                 <SimpleEditor
+                  key={activeSection.id}
                   value={activeSection.draft || ''}
                   onChange={val => updateSection(activeSection.id, { draft: val })}
                   placeholder={`Write your ${st.label.toLowerCase()} here…\n\nYou can pull quotes from the evidence column using the "⊕ pull quote" button above.`} />

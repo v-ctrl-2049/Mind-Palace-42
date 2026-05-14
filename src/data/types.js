@@ -19,23 +19,23 @@ export const DEFAULT_THOUGHT_TYPES = [
 ];
 
 export const DEFAULT_NODE_TYPES = [
-  { id: 'topic',       label: 'Topic',         color: '#2c3e50', bg: '#e8edf2' },
-  { id: 'concept',     label: 'Concept',       color: '#7a6a52', bg: '#f0e8d8' },
-  { id: 'thinker',     label: 'Thinker',       color: '#2c5f8a', bg: '#e8eff8' },
-  { id: 'work',        label: 'Work / Text',   color: '#2e7d5e', bg: '#e4f4ec' },
-  { id: 'opposing',    label: 'Opposing view', color: '#c0392b', bg: '#faeae8' },
-  { id: 'synthesis',   label: 'My synthesis',  color: '#b07d28', bg: '#faf0dc' },
-  { id: 'question',    label: 'Open question', color: '#7b3fa0', bg: '#f3eafa' },
+  { id: 'topic',       label: 'Topic',         color: '#00ff41', bg: '#e8edf2' },
+  { id: 'concept',     label: 'Concept',       color: '#e8c84a', bg: '#f0e8d8' },
+  { id: 'thinker',     label: 'Thinker',       color: '#4af0ff', bg: '#e8eff8' },
+  { id: 'work',        label: 'Work / Text',   color: '#a0f040', bg: '#e4f4ec' },
+  { id: 'opposing',    label: 'Opposing view', color: '#ff4a6a', bg: '#faeae8' },
+  { id: 'synthesis',   label: 'My synthesis',  color: '#ffa040', bg: '#faf0dc' },
+  { id: 'question',    label: 'Open question', color: '#c060ff', bg: '#f3eafa' },
 ];
 
 export const DEFAULT_EDGE_TYPES = [
-  { id: 'influence',    label: 'Influence',     color: '#8a8680', dash: false },
-  { id: 'tension',      label: 'Tension',       color: '#c0392b', dash: false },
-  { id: 'extends',      label: 'Extends',       color: '#2c5f8a', dash: false },
-  { id: 'refutes',      label: 'Refutes',       color: '#e05a4a', dash: true  },
-  { id: 'related',      label: 'Related',       color: '#7a6a52', dash: true  },
-  { id: 'synthesises',  label: 'Synthesises',   color: '#b07d28', dash: false },
-  { id: 'foundation',   label: 'Foundation of', color: '#1a5c3a', dash: false },
+  { id: 'influence',    label: 'Influence',     color: '#e8c84a', dash: false },
+  { id: 'tension',      label: 'Tension',       color: '#ff4a6a', dash: false },
+  { id: 'extends',      label: 'Extends',       color: '#4af0ff', dash: false },
+  { id: 'refutes',      label: 'Refutes',       color: '#ff6040', dash: true  },
+  { id: 'related',      label: 'Related',       color: '#a0a090', dash: true  },
+  { id: 'synthesises',  label: 'Synthesises',   color: '#ffa040', dash: false },
+  { id: 'foundation',   label: 'Foundation of', color: '#00ff41', dash: false },
 ];
 
 export const TYPE_COLORS = [

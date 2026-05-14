@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useTheme } from '../ThemeContext';
 import BookPeek from './BookPeek';
 import { getDailyQuote, getDailyNotice } from '../data/archivistQuotes';
+import { calcSanity, getSanThreshold, SAN_VOICES } from '../utils/sanCheck';
 
 // ── Grouped nav — Reading mode ────────────────────────────────────
 const NAV_GROUPS_READING = [
@@ -64,7 +65,7 @@ const NAV_GROUPS_WRITING = [
   },
 ];
 
-export default function Sidebar({ books, groups, activeView, activeBook, onViewChange, onBookChange, onAddBook, onUpdateGroups, thoughts = [], thoughtTypes = [], onOpenArchive, investigations = [], topics = [], events = [] }) {
+export default function Sidebar({ books, groups, activeView, activeBook, onViewChange, onBookChange, onAddBook, onUpdateGroups, thoughts = [], thoughtTypes = [], onOpenArchive, investigations = [], topics = [], events = [], onPinBook, readingLog = [], anatomy = [], observatory = [] }) {
   const { dark, toggle } = useTheme();
   const [collapsed, setCollapsed]           = useState({});
   const [editingGroupId, setEditingGroupId] = useState(null);
@@ -73,9 +74,22 @@ export default function Sidebar({ books, groups, activeView, activeBook, onViewC
   const [mode, setMode]                     = useState('reading');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [collapsedNavGroups, setCollapsedNavGroups] = useState({});
+  const [showSanReport, setShowSanReport]   = useState(false);
+
+  // Compute sanity score
+  const sanity = useMemo(() => calcSanity({
+    entries: readingLog,
+    topics,
+    investigations,
+    anatomy,
+    thoughts,
+    observatory,
+  }), [readingLog, topics, investigations, anatomy, thoughts, observatory]);
 
   const NAV_GROUPS = mode === 'writing' ? NAV_GROUPS_WRITING : NAV_GROUPS_READING;
-  const readingBooks = books.filter(b => b.status === 'reading');
+  const pinnedBooks    = books.filter(b => b.pinned);
+  const readingBooks   = books.filter(b => b.status === 'reading');
+  const deskBooks      = [...new Map([...pinnedBooks, ...readingBooks].map(b => [b.id, b])).values()];
 
   const toggleGroup    = (gid) => setCollapsed(c => ({ ...c, [gid]: !c[gid] }));
   const toggleNavGroup = (gid) => setCollapsedNavGroups(c => ({ ...c, [gid]: !c[gid] }));
@@ -91,8 +105,8 @@ export default function Sidebar({ books, groups, activeView, activeBook, onViewC
     onUpdateGroups(prev => prev.filter(g => g.id !== gid));
   };
 
-  const groupedReading   = groups.map(g => ({ group: g, books: readingBooks.filter(b => b.groupId === g.id) })).filter(g => g.books.length > 0);
-  const ungroupedReading = readingBooks.filter(b => !b.groupId || !groups.find(g => g.id === b.groupId));
+  const groupedReading   = groups.map(g => ({ group: g, books: deskBooks.filter(b => b.groupId === g.id) })).filter(g => g.books.length > 0);
+  const ungroupedReading = deskBooks.filter(b => !b.groupId || !groups.find(g => g.id === b.groupId));
 
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -180,11 +194,26 @@ export default function Sidebar({ books, groups, activeView, activeBook, onViewC
         })}
       </div>
 
+      {/* ── SAN INDICATOR ────────────────────────────────── */}
+      <div onClick={() => setShowSanReport(s => !s)}
+        style={{ padding: '6px 12px', borderBottom: '1px solid var(--paper-3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, background: showSanReport ? 'var(--nav-active-bg)' : 'transparent', transition: 'background 0.1s' }}
+        onMouseEnter={e => e.currentTarget.style.background = 'var(--nav-hover-bg)'}
+        onMouseLeave={e => e.currentTarget.style.background = showSanReport ? 'var(--nav-active-bg)' : 'transparent'}>
+        <span style={{ fontSize: 10, color: sanity.threshold.color, fontFamily: 'var(--font-mono)', fontStyle: 'normal', textShadow: `0 0 6px ${sanity.threshold.color}66` }}>{sanity.threshold.glyph}</span>
+        <span style={{ fontSize: 8, color: sanity.threshold.color, fontFamily: 'var(--font-mono)', fontStyle: 'normal', letterSpacing: '0.1em', flex: 1 }}>SAN {sanity.score}</span>
+        <span style={{ fontSize: 7, color: sanity.threshold.color, fontFamily: 'var(--font-mono)', fontStyle: 'normal', letterSpacing: '0.08em', opacity: 0.8 }}>{sanity.threshold.status}</span>
+      </div>
+
+      {/* ── SAN REPORT ───────────────────────────────────── */}
+      {showSanReport && (
+        <SanReport sanity={sanity} onClose={() => setShowSanReport(false)} />
+      )}
+
       {/* ── CURRENT READING ──────────────────────────────── */}
       <div style={{ padding: '6px 0 4px', flex: 1, overflowY: 'auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px 5px' }}>
           <div style={{ fontSize: 8, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', fontStyle: 'normal', letterSpacing: '0.1em', textTransform: 'uppercase' }}>On the desk</div>
-          <span style={{ fontSize: 8, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>{readingBooks.length}</span>
+          <span style={{ fontSize: 8, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>{deskBooks.length}</span>
         </div>
 
         <BookItem label="All sources" color="var(--ink-4)" active={activeBook === 'all'} onClick={() => onBookChange('all')} />
@@ -218,7 +247,8 @@ export default function Sidebar({ books, groups, activeView, activeBook, onViewC
                   onClick={() => onBookChange(b.id)} indent
                   progress={b.pages ? Math.round((b.progress / b.pages) * 100) : null}
                   bookId={b.id} onOpenArchive={onOpenArchive}
-                  onPeek={id => setPeekBookId(id)} onUnpeek={() => setPeekBookId(null)} />
+                  onPeek={id => setPeekBookId(id)} onUnpeek={() => setPeekBookId(null)}
+                  pinned={b.pinned} onPin={onPinBook} />
               ))}
             </div>
           );
@@ -229,17 +259,18 @@ export default function Sidebar({ books, groups, activeView, activeBook, onViewC
             onClick={() => onBookChange(b.id)}
             progress={b.pages ? Math.round((b.progress / b.pages) * 100) : null}
             bookId={b.id} onOpenArchive={onOpenArchive}
-            onPeek={id => setPeekBookId(id)} onUnpeek={() => setPeekBookId(null)} />
+            onPeek={id => setPeekBookId(id)} onUnpeek={() => setPeekBookId(null)}
+            pinned={b.pinned} onPin={onPinBook} />
         ))}
 
-        {readingBooks.length === 0 && (
+        {deskBooks.length === 0 && (
           <div style={{ fontSize: 11, color: 'var(--ink-4)', fontStyle: 'italic', padding: '8px 14px', lineHeight: 1.6 }}>
             The desk is clear.<br />Open a book in Library to begin.
           </div>
         )}
 
         {peekBookId && (() => {
-          const peekBook = readingBooks.find(b => b.id === peekBookId);
+          const peekBook = deskBooks.find(b => b.id === peekBookId);
           if (!peekBook) return null;
           return <BookPeek book={peekBook} thoughts={thoughts} thoughtTypes={thoughtTypes} />;
         })()}
@@ -269,34 +300,111 @@ function NavBtn({ active, onClick, children }) {
   );
 }
 
-function BookItem({ label, color, active, onClick, indent, progress, bookId, onOpenArchive, onPeek, onUnpeek }) {
+function BookItem({ label, color, active, onClick, indent, progress, bookId, onOpenArchive, onPeek, onUnpeek, pinned, onPin }) {
   return (
     <div style={{ position: 'relative' }}
       onMouseEnter={() => onPeek?.(bookId)}
       onMouseLeave={() => onUnpeek?.()}>
-      <button onClick={onClick}
-        style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', padding: `4px 12px 4px ${indent ? 22 : 12}px`, fontSize: 11, textAlign: 'left', color: active ? 'var(--ink)' : 'var(--ink-2)', background: active ? 'var(--nav-active-bg)' : 'transparent', fontWeight: active ? 500 : 400, cursor: 'pointer', border: 'none', borderLeft: active ? '2px solid var(--accent-2)' : '2px solid transparent', marginBottom: 1, lineHeight: 1.35, transition: 'all 0.1s' }}
+      <div onClick={onClick}
+        style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', padding: `4px 12px 4px ${indent ? 22 : 12}px`, fontSize: 11, textAlign: 'left', color: active ? 'var(--ink)' : 'var(--ink-2)', background: active ? 'var(--nav-active-bg)' : 'transparent', fontWeight: active ? 500 : 400, cursor: 'pointer', borderLeft: active ? '2px solid var(--accent-2)' : '2px solid transparent', marginBottom: 1, lineHeight: 1.35, transition: 'all 0.1s' }}
         onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--nav-hover-bg)'; }}
         onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}>
         <div style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />
         <div style={{ flex: 1, overflow: 'hidden' }}>
-          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: 'italic' }}>{label}</div>
+          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: 'italic', borderLeft: pinned ? '2px solid #c8a84066' : 'none', paddingLeft: pinned ? 4 : 0, transition: 'all 0.15s' }}>
+            {pinned && <span style={{ fontSize: 7, marginRight: 4, color: '#c8a840', opacity: 0.8, textShadow: '0 0 4px #c8a84066' }}>⊛</span>}
+            {label}
+          </div>
           {progress !== null && progress !== undefined && (
             <div style={{ marginTop: 2, height: 2, background: 'var(--paper-3)', borderRadius: 1, overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${progress}%`, background: color, opacity: 0.7 }} />
             </div>
           )}
         </div>
+        {onPin && (
+          <span onClick={e => { e.stopPropagation(); onPin(bookId); }}
+            style={{ fontSize: 9, color: pinned ? '#c8a840' : 'var(--ink-4)', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: pinned ? 1 : 0, transition: 'all 0.15s', textShadow: pinned ? '0 0 6px #c8a84088' : 'none' }}
+            title={pinned ? 'Unpin from desk' : 'Pin to desk'}
+            onMouseEnter={e => { e.stopPropagation(); e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = '#c8a840'; }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = pinned ? '1' : '0'; e.currentTarget.style.color = pinned ? '#c8a840' : 'var(--ink-4)'; }}>
+            ⊛
+          </span>
+        )}
         {onOpenArchive && (
-          <button onClick={e => { e.stopPropagation(); onOpenArchive(bookId); }}
-            style={{ fontSize: 9, color: 'var(--ink-4)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0 }}
-            className="archive-btn" title="View notes"
+          <span onClick={e => { e.stopPropagation(); onOpenArchive(bookId); }}
+            style={{ fontSize: 9, color: 'var(--ink-4)', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0, transition: 'opacity 0.1s' }}
+            title="View notes"
             onMouseEnter={e => { e.stopPropagation(); e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.opacity = '1'; }}
             onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-4)'; e.currentTarget.style.opacity = '0'; }}>
             ◈
-          </button>
+          </span>
         )}
-      </button>
+      </div>
+    </div>
+  );
+}
+
+// ── San Report Panel ─────────────────────────────────────────────
+function SanReport({ sanity, onClose }) {
+  const { score, drains, recoveries, threshold } = sanity;
+  const voices = SAN_VOICES[threshold.status] || SAN_VOICES.STABLE;
+  const voice  = voices[Math.floor(Date.now() / 86400000) % voices.length];
+
+  return (
+    <div style={{ background: 'var(--paper-card)', borderBottom: '1px solid var(--paper-3)', padding: '10px 12px', maxHeight: 320, overflowY: 'auto' }}>
+      {/* Score header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 20, fontFamily: 'var(--font-mono)', color: threshold.color, textShadow: `0 0 8px ${threshold.color}66`, fontWeight: 700 }}>{score}</span>
+        <div>
+          <div style={{ fontSize: 8, color: threshold.color, fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>{threshold.status}</div>
+          <div style={{ fontSize: 7, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em' }}>SANITY RATING</div>
+        </div>
+        <button onClick={onClose} style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--ink-4)', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+      </div>
+
+      {/* Faculty voice */}
+      <div style={{ borderLeft: `2px solid ${threshold.color}`, paddingLeft: 8, marginBottom: 10 }}>
+        <div style={{ fontSize: 7, color: threshold.color, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', marginBottom: 3, opacity: 0.8 }}>{voice.faculty}</div>
+        <div style={{ fontSize: 10, color: 'var(--ink-3)', fontStyle: 'italic', lineHeight: 1.6 }}>{voice.notice}</div>
+      </div>
+
+      {/* Drains */}
+      {drains.length > 0 && (
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 7, color: '#c0392b', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 5 }}>⬇ Draining</div>
+          {drains.map((d, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3, gap: 6 }}>
+              <span style={{ fontSize: 9, color: 'var(--ink-3)', fontStyle: 'italic', flex: 1 }}>{d.label} <span style={{ color: 'var(--ink-4)', fontStyle: 'normal', fontFamily: 'var(--font-mono)', fontSize: 8 }}>×{d.count}</span></span>
+              <span style={{ fontSize: 9, color: '#c0392b', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{d.total}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Recoveries */}
+      {recoveries.length > 0 && (
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 7, color: '#2e7d5e', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 5 }}>⬆ Recovering</div>
+          {recoveries.map((r, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3, gap: 6 }}>
+              <span style={{ fontSize: 9, color: 'var(--ink-3)', fontStyle: 'italic', flex: 1 }}>{r.label} <span style={{ color: 'var(--ink-4)', fontStyle: 'normal', fontFamily: 'var(--font-mono)', fontSize: 8 }}>×{r.count}</span></span>
+              <span style={{ fontSize: 9, color: '#2e7d5e', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>+{r.total}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Remedies */}
+      {drains.length > 0 && (
+        <div style={{ borderTop: '1px dashed var(--paper-3)', paddingTop: 8 }}>
+          <div style={{ fontSize: 7, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 5 }}>Remedies</div>
+          {drains.slice(0, 3).map((d, i) => (
+            <div key={i} style={{ fontSize: 9, color: 'var(--ink-4)', fontStyle: 'italic', marginBottom: 3, paddingLeft: 8, borderLeft: '1px solid var(--paper-3)' }}>
+              {d.remedy}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

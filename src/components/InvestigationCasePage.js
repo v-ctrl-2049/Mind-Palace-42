@@ -6,6 +6,7 @@ import ArgumentMap from './ArgumentMap';
 import InvestigationWriting from './InvestigationWriting';
 import { getMapEvidenceSummary } from '../utils/evidenceProfile';
 import MentionPicker, { renderMentions, stripMentions } from './MentionPicker';
+import LogCaptureModal from './LogCaptureModal';
 
 const getInvType = (id, types) =>
   (types || []).find(t => t.id === id) || { id, label: id, color: '#8a8680', bg: '#f2f0ec' };
@@ -243,7 +244,7 @@ function LogEntry({ entry, onEdit, onDelete }) {
 }
 
 // ── Main ─────────────────────────────────────────────────────────
-export default function InvestigationCasePage({ inv, books, events, invTypes = [], onUpdate, onDelete, onBack, onViewTimeline }) {
+export default function InvestigationCasePage({ inv, books, events, invTypes = [], onUpdate, onDelete, onBack, onViewTimeline, onAddLog }) {
   const invType = getInvType(inv.type, invTypes);
   const ss      = STATUS_STYLES[inv.status] || STATUS_STYLES.active;
   const linkedBooks = books.filter(b => (inv.bookIds || []).includes(b.id));
@@ -264,6 +265,12 @@ export default function InvestigationCasePage({ inv, books, events, invTypes = [
   // Custody log form
   const [newLogNote, setNewLogNote] = useState('');
   const [newLogType, setNewLogType] = useState('note');
+
+  const [logCapture, setLogCapture] = useState(null);
+  const openLog = (prefill = {}) => setLogCapture({
+    context: { label: inv.title, sourceType: 'investigation', sourceId: inv.id, sourceName: inv.title },
+    prefill,
+  });
 
   const set = (key, val) => onUpdate({ ...inv, [key]: val, updatedAt: new Date().toISOString() });
 
@@ -401,6 +408,7 @@ export default function InvestigationCasePage({ inv, books, events, invTypes = [
   })).filter(x => x.count > 0);
 
   return (
+  <>
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: paperBg }}>
 
       {/* HEADER */}
@@ -409,6 +417,14 @@ export default function InvestigationCasePage({ inv, books, events, invTypes = [
           {inv.caseNumber || 'CASE'}
         </div>
         <button onClick={onBack} style={{ fontSize: 11, color: 'var(--ink-4)', cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'var(--font-mono)', fontStyle: 'normal', letterSpacing: '0.05em' }}>← BACK</button>
+        <div style={{ width: 1, height: 16, background: 'var(--paper-3)' }} />
+        {onAddLog && (
+          <button onClick={() => openLog()} style={{ fontSize: 9, padding: '3px 10px', borderRadius: 2, border: '1px solid var(--paper-3)', color: 'var(--ink-4)', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontStyle: 'normal', letterSpacing: '0.06em' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-2)'; e.currentTarget.style.color = 'var(--accent)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--paper-3)'; e.currentTarget.style.color = 'var(--ink-4)'; }}>
+            → Log
+          </button>
+        )}
         <div style={{ width: 1, height: 16, background: 'var(--paper-3)' }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
@@ -898,5 +914,14 @@ export default function InvestigationCasePage({ inv, books, events, invTypes = [
         </div>
       )}
     </div>
+
+    {logCapture && onAddLog && (
+      <LogCaptureModal
+        context={logCapture.context}
+        prefill={logCapture.prefill}
+        onSubmit={entry => { onAddLog(entry); setLogCapture(null); }}
+        onClose={() => setLogCapture(null)} />
+    )}
+  </>
   );
 }

@@ -155,11 +155,12 @@ function CaseCard({ inv, books, invTypes, onClick, compact }) {
 export default function InvestigationView({
   investigations, books, events,
   invTypes, onUpdateInvTypes,
-  onUpdate, onAdd, onDelete, onSwitchToTimeline,
+  onUpdate, onAdd, onDelete, onSwitchToTimeline, onAddLog,
 }) {
   const [displayMode, setDisplayMode] = useState('board');
   const [filterType,   setFilterType]   = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterBook,   setFilterBook]   = useState('all');
   const [search, setSearch]             = useState('');
   const [activeCaseId, setActiveCaseId] = useState(null);
   const [editingInv, setEditingInv]     = useState(null);
@@ -196,6 +197,7 @@ export default function InvestigationView({
         onDelete={onDelete}
         onBack={() => setActiveCaseId(null)}
         onViewTimeline={tag => { setActiveCaseId(null); onSwitchToTimeline?.(tag); }}
+        onAddLog={onAddLog}
       />
     );
   }
@@ -237,7 +239,6 @@ export default function InvestigationView({
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--ink)' }}>Investigation</div>
-            <div style={{ fontSize: 11, color: 'var(--ink-3)', fontStyle: 'italic', fontFamily: 'var(--font-display)', letterSpacing: '0.04em', opacity: 0.9 }}>rerum cognoscere causas</div>
             <div style={{ fontSize: 11, color: 'var(--ink-3)', fontStyle: 'italic', marginTop: 1 }}>
               {investigations.length} case{investigations.length !== 1 ? 's' : ''} · {investigations.filter(i => i.status === 'active').length} active
             </div>

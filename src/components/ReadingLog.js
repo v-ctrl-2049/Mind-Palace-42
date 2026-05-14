@@ -41,6 +41,55 @@ function toRoman(n) {
 }
 
 // ── Promote modal ─────────────────────────────────────────────────
+// ── Dispatch Contributor ─────────────────────────────────────────
+// Lets the researcher add their own quotes to the daily rotation
+function DispatchContributor() {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [attribution, setAttribution] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  const submit = () => {
+    if (!text.trim()) return;
+    const existing = JSON.parse(localStorage.getItem('rm_dispatch_quotes') || '[]');
+    existing.push({ text: text.trim(), attribution: attribution.trim() || 'The researcher' });
+    localStorage.setItem('rm_dispatch_quotes', JSON.stringify(existing));
+    setText(''); setAttribution('');
+    setSaved(true); setTimeout(() => { setSaved(false); setOpen(false); }, 1500);
+  };
+
+  if (!open) return (
+    <button onClick={() => setOpen(true)}
+      style={{ fontSize: 8, color: '#8a7060', background: 'none', border: '1px dashed #c8b99a', borderRadius: 2, padding: '2px 8px', cursor: 'pointer', fontFamily: 'DM Mono, monospace', letterSpacing: '0.05em', width: '100%' }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = '#b8944a'; e.currentTarget.style.color = '#5a3a18'; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = '#c8b99a'; e.currentTarget.style.color = '#8a7060'; }}>
+      + contribute to dispatch
+    </button>
+  );
+
+  return (
+    <div style={{ marginTop: 6, borderTop: '1px dashed #c8b99a', paddingTop: 8 }}>
+      {saved ? (
+        <div style={{ fontSize: 9, color: '#2e7d5e', fontFamily: 'DM Mono, monospace', letterSpacing: '0.06em' }}>✓ Filed to dispatch</div>
+      ) : (
+        <>
+          <textarea value={text} onChange={e => setText(e.target.value)}
+            placeholder="Your own words for the dispatch…"
+            rows={2}
+            style={{ width: '100%', resize: 'none', fontSize: 11, padding: '4px 6px', fontStyle: 'italic', border: '1px solid #c8b99a', borderRadius: 2, background: 'transparent', fontFamily: 'Georgia, serif', lineHeight: 1.5, marginBottom: 4 }} />
+          <input value={attribution} onChange={e => setAttribution(e.target.value)}
+            placeholder="Attribution (or leave blank)"
+            style={{ width: '100%', fontSize: 9, padding: '3px 6px', border: '1px solid #c8b99a', borderRadius: 2, background: 'transparent', fontFamily: 'DM Mono, monospace', marginBottom: 6 }} />
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button onClick={submit} style={{ fontSize: 8, padding: '2px 10px', background: '#5a3a18', color: '#fefcf5', border: 'none', borderRadius: 2, cursor: 'pointer', fontFamily: 'DM Mono, monospace', letterSpacing: '0.06em' }}>FILE</button>
+            <button onClick={() => setOpen(false)} style={{ fontSize: 8, padding: '2px 8px', background: 'transparent', color: '#8a7060', border: '1px solid #c8b99a', borderRadius: 2, cursor: 'pointer', fontFamily: 'DM Mono, monospace' }}>cancel</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function PromoteModal({ entry, investigations, onPromoteToExisting, onPromoteNew, onClose }) {
   const [mode, setMode]             = useState('existing');
   const [selectedInv, setSelectedInv] = useState('');
@@ -516,6 +565,7 @@ export default function ReadingLog({ entries = [], books = [], articles = [], in
     setPromotingEntry(null);
   };
 
+  const [activeTab, setActiveTab] = useState('journal');
   const today = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
 
   return (
@@ -535,7 +585,24 @@ export default function ReadingLog({ entries = [], books = [], articles = [], in
         </div>
       </div>
 
-      {/* ── MAIN AREA ────────────────────────────────────────── */}
+      {/* ── TAB BAR ──────────────────────────────────────────── */}
+      <div style={{ display:'flex', background:'#1a1410', borderBottom:'2px solid #3a2a10', flexShrink:0 }}>
+        {[['journal','◈ Journal'],['observatory','⊛ Observatory']].map(([id, label]) => (
+          <button key={id} onClick={() => setActiveTab(id)}
+            style={{ fontSize:9, padding:'6px 18px', border:'none', borderBottom:activeTab===id?'2px solid #c8a870':'2px solid transparent', background:'transparent', color:activeTab===id?'#c8a870':'#5a4a2a', cursor:'pointer', fontFamily:'DM Mono, monospace', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:'-2px', transition:'all 0.1s' }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── OBSERVATORY TAB ──────────────────────────────────── */}
+      {activeTab === 'observatory' && (
+        <ObservatoryPanel topics={topics} />
+      )}
+
+      {/* ── JOURNAL TAB ──────────────────────────────────────── */}
+      {activeTab === 'journal' && (
+      <>
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
         {/* ── LEFT: capture + feed ──────────────────────────── */}
@@ -627,9 +694,15 @@ export default function ReadingLog({ entries = [], books = [], articles = [], in
         {/* ── RIGHT: inquiry board ──────────────────────────── */}
         <div style={{ width: 230, borderLeft: '1px solid #c8b99a', overflowY: 'auto', background: '#e8dfc8', padding: '14px 12px', flexShrink: 0 }}>
 
-          {/* Today's dispatch — moved here from Sidebar */}
+          {/* Today's dispatch */}
           {(() => {
+            const userDispatch = JSON.parse(localStorage.getItem('rm_dispatch_quotes') || '[]');
+            const allQuotes = [...(userDispatch.length ? userDispatch : []), { text: getDailyQuote(books, []).text, attribution: getDailyQuote(books, []).attribution }];
             const quote = getDailyQuote(books, []);
+            const dayIdx = Math.floor(Date.now() / 86400000);
+            const userQ = userDispatch.length > 0 ? userDispatch[dayIdx % userDispatch.length] : null;
+            const showUserQ = userQ && dayIdx % 3 === 0;
+            const displayQ = showUserQ ? userQ : quote;
             return (
               <div style={{ background: '#fefcf5', border: '1px solid #c8b99a', borderRadius: 2, padding: '10px 12px', marginBottom: 12, boxShadow: '1px 2px 5px rgba(0,0,0,0.06)' }}>
                 <div style={{ fontSize: 7, color: '#8a7060', fontFamily: 'DM Mono, monospace', letterSpacing: '0.1em', marginBottom: 6, textTransform: 'uppercase', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -637,9 +710,10 @@ export default function ReadingLog({ entries = [], books = [], articles = [], in
                   <span style={{ fontSize: 7, fontStyle: 'italic', fontFamily: 'Georgia, serif', textTransform: 'none', letterSpacing: '0.02em', opacity: 0.7 }}>rerum cognoscere causas</span>
                 </div>
                 <div style={{ fontSize: 10, color: '#3a2a18', fontStyle: 'italic', lineHeight: 1.65, marginBottom: 4, borderLeft: '2px solid #b8944a', paddingLeft: 7 }}>
-                  "{quote.text.slice(0, 100)}{quote.text.length > 100 ? '…' : ''}"
+                  "{displayQ.text.slice(0, 120)}{displayQ.text.length > 120 ? '…' : ''}"
                 </div>
-                <div style={{ fontSize: 8, color: '#8a7060', fontFamily: 'DM Mono, monospace', letterSpacing: '0.05em' }}>— {quote.attribution}</div>
+                <div style={{ fontSize: 8, color: '#8a7060', fontFamily: 'DM Mono, monospace', letterSpacing: '0.05em', marginBottom: 8 }}>— {displayQ.attribution}</div>
+                <DispatchContributor />
               </div>
             );
           })()}
@@ -787,6 +861,197 @@ export default function ReadingLog({ entries = [], books = [], articles = [], in
           onPromoteNew={handlePromoteNew}
           onClose={() => setPromotingEntry(null)} />
       )}
+      </>
+      )} {/* end journal tab */}
+    </div>
+  );
+}
+
+// ── Observatory weights ───────────────────────────────────────────
+const OBS_WEIGHTS = {
+  passing:     { label: 'Passing',     color: '#8a7a5a', icon: '·',  desc: 'A flicker — worth noting, may not recur' },
+  signal:      { label: 'Signal',      color: '#2c5f8a', icon: '◎',  desc: 'Something worth watching' },
+  pattern:     { label: 'Pattern',     color: '#b07d28', icon: '⊛',  desc: 'You have seen this before' },
+  fixed_point: { label: 'Fixed Point', color: '#c0392b', icon: '⊕',  desc: 'This demands investigation' },
+};
+
+const OBS_GRID = `repeating-linear-gradient(#b8a88a 0px, transparent 1px, transparent 20px),
+  repeating-linear-gradient(90deg, #b8a88a 0px, transparent 1px, transparent 20px)`;
+
+function ObservatoryPanel({ topics = [] }) {
+  const STORAGE_KEY = 'rm_observatory';
+  const [observations, setObservations] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
+  });
+  const [adding, setAdding]       = React.useState(false);
+  const [filterWeight, setFilter] = React.useState('all');
+  const [draft, setDraft]         = React.useState({ text: '', context: '', weight: 'signal', topicIds: [] });
+
+  const save = (obs) => {
+    const updated = [obs, ...observations];
+    setObservations(updated);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  };
+
+  const remove = (id) => {
+    const updated = observations.filter(o => o.id !== id);
+    setObservations(updated);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  };
+
+  const submit = () => {
+    if (!draft.text.trim()) return;
+    save({ id: Date.now().toString(), ...draft, createdAt: new Date().toISOString() });
+    setDraft({ text: '', context: '', weight: 'signal', topicIds: [] });
+    setAdding(false);
+  };
+
+  const filtered = observations
+    .filter(o => filterWeight === 'all' || o.weight === filterWeight)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const counts = Object.keys(OBS_WEIGHTS).reduce((acc, k) => {
+    acc[k] = observations.filter(o => o.weight === k).length;
+    return acc;
+  }, {});
+
+  return (
+    <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', background:'#f0e8d4' }}>
+
+      {/* Observatory header */}
+      <div style={{ padding:'10px 20px', borderBottom:'1px solid #c8b99a', background:'#e8dfc8', flexShrink:0, display:'flex', alignItems:'center', gap:12 }}>
+        <div>
+          <div style={{ fontSize:8, color:'#8a7060', fontFamily:'DM Mono, monospace', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:2 }}>Observatory · Field observations</div>
+          <div style={{ fontSize:11, color:'#5a4a2a', fontStyle:'italic', fontFamily:'Georgia, serif' }}>The present world. What you notice out there — not from reading, from living.</div>
+        </div>
+        <button onClick={() => setAdding(a => !a)}
+          style={{ marginLeft:'auto', fontSize:9, padding:'5px 14px', borderRadius:2, border:'1px solid #c8b99a', color:adding?'#c0392b':'#5a4a2a', background:'transparent', cursor:'pointer', fontFamily:'DM Mono, monospace', letterSpacing:'0.06em' }}
+          onMouseEnter={e=>e.currentTarget.style.borderColor='#8a6a40'}
+          onMouseLeave={e=>e.currentTarget.style.borderColor='#c8b99a'}>
+          {adding ? '✕ cancel' : '+ observe'}
+        </button>
+      </div>
+
+      {/* Weight filters */}
+      <div style={{ padding:'6px 16px', borderBottom:'1px solid #c8b99a', display:'flex', gap:6, flexShrink:0, background:'#e8dfc8' }}>
+        <button onClick={() => setFilter('all')}
+          style={{ fontSize:8, padding:'2px 8px', borderRadius:2, border:`1px solid ${filterWeight==='all'?'#8a6a40':'#c8b99a'}`, background:filterWeight==='all'?'#d4c4a4':'transparent', color:'#5a4a2a', cursor:'pointer', fontFamily:'DM Mono, monospace' }}>
+          All · {observations.length}
+        </button>
+        {Object.entries(OBS_WEIGHTS).map(([k, v]) => counts[k] > 0 && (
+          <button key={k} onClick={() => setFilter(k)}
+            style={{ fontSize:8, padding:'2px 8px', borderRadius:2, border:`1px solid ${filterWeight===k?v.color:'#c8b99a'}`, background:filterWeight===k?v.color+'18':'transparent', color:filterWeight===k?v.color:'#5a4a2a', cursor:'pointer', fontFamily:'DM Mono, monospace' }}>
+            {v.icon} {v.label} · {counts[k]}
+          </button>
+        ))}
+      </div>
+
+      {/* Add form */}
+      {adding && (
+        <div style={{ padding:'14px 20px', borderBottom:'1px solid #c8b99a', background:'#faf6ee', flexShrink:0, backgroundImage:OBS_GRID, backgroundSize:'20px 20px', backgroundPosition:'0 0' }}>
+          <div style={{ background:'rgba(250,246,238,0.92)', borderRadius:2, padding:'12px 14px', border:'1px solid #c8b99a' }}>
+            <div style={{ fontSize:8, color:'#8a7060', fontFamily:'DM Mono, monospace', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:8 }}>
+              {new Date().toLocaleString('en-GB', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}
+            </div>
+
+            {/* Observation text */}
+            <textarea value={draft.text} onChange={e => setDraft(d => ({...d, text:e.target.value}))}
+              placeholder="What did you notice? Describe it precisely…"
+              rows={3} autoFocus
+              style={{ width:'100%', resize:'none', fontSize:13, fontFamily:'Georgia, serif', lineHeight:1.7, border:'none', borderBottom:'1px solid #c8b99a', background:'transparent', outline:'none', marginBottom:8, padding:'4px 0' }} />
+
+            {/* Context */}
+            <input value={draft.context} onChange={e => setDraft(d => ({...d, context:e.target.value}))}
+              placeholder="Context — where, doing what (optional)…"
+              style={{ width:'100%', fontSize:10, fontFamily:'DM Mono, monospace', border:'none', borderBottom:'1px dashed #c8b99a', background:'transparent', outline:'none', marginBottom:10, padding:'2px 0', color:'#8a7060' }} />
+
+            {/* Weight */}
+            <div style={{ display:'flex', gap:6, marginBottom:10, flexWrap:'wrap' }}>
+              {Object.entries(OBS_WEIGHTS).map(([k, v]) => (
+                <button key={k} onClick={() => setDraft(d => ({...d, weight:k}))}
+                  title={v.desc}
+                  style={{ fontSize:8, padding:'3px 10px', borderRadius:2, border:`1px solid ${draft.weight===k?v.color:'#c8b99a'}`, background:draft.weight===k?v.color+'18':'transparent', color:draft.weight===k?v.color:'#8a7060', cursor:'pointer', fontFamily:'DM Mono, monospace' }}>
+                  {v.icon} {v.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Link to topics */}
+            {topics.length > 0 && (
+              <div style={{ marginBottom:10 }}>
+                <select onChange={e => { if (e.target.value) { setDraft(d => ({...d, topicIds:[...new Set([...d.topicIds, e.target.value])]})); e.target.value=''; } }}
+                  style={{ fontSize:10, padding:'3px 6px', borderRadius:2, border:'1px solid #c8b99a', background:'transparent', fontStyle:'italic', color:'#5a4a2a' }}>
+                  <option value="">Connect to topic…</option>
+                  {topics.filter(t => !draft.topicIds.includes(t.id)).map(t => (
+                    <option key={t.id} value={t.id}>{t.title}</option>
+                  ))}
+                </select>
+                <div style={{ display:'flex', gap:4, marginTop:4, flexWrap:'wrap' }}>
+                  {draft.topicIds.map(id => {
+                    const t = topics.find(t => t.id === id);
+                    return t ? (
+                      <span key={id} style={{ fontSize:9, padding:'1px 7px', background:'#e8dfc8', border:'1px solid #c8b99a', borderRadius:2, color:'#5a4a2a', fontStyle:'italic', display:'flex', alignItems:'center', gap:4 }}>
+                        {t.title}
+                        <button onClick={() => setDraft(d => ({...d, topicIds:d.topicIds.filter(i=>i!==id)}))} style={{ fontSize:9, background:'none', border:'none', cursor:'pointer', color:'#8a7060', padding:0 }}>✕</button>
+                      </span>
+                    ) : null;
+                  })}
+                </div>
+              </div>
+            )}
+
+            <button onClick={submit}
+              style={{ fontSize:9, padding:'4px 16px', borderRadius:2, background:'#3a2a10', color:'#e8dfc8', border:'none', cursor:'pointer', fontFamily:'DM Mono, monospace', letterSpacing:'0.07em' }}>
+              FILE OBSERVATION
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Observations list */}
+      <div style={{ flex:1, overflowY:'auto', padding:'16px 20px' }}>
+        {filtered.length === 0 ? (
+          <div style={{ textAlign:'center', padding:'60px 0' }}>
+            <div style={{ fontSize:32, opacity:0.08, marginBottom:10 }}>⊛</div>
+            <div style={{ fontSize:12, color:'#8a7060', fontStyle:'italic', lineHeight:1.8 }}>
+              The observatory is empty.<br/>
+              What do you notice in the world today?
+            </div>
+          </div>
+        ) : filtered.map(obs => {
+          const w = OBS_WEIGHTS[obs.weight] || OBS_WEIGHTS.signal;
+          const linkedTopics = (obs.topicIds||[]).map(id => topics.find(t=>t.id===id)).filter(Boolean);
+          const dt = new Date(obs.createdAt);
+          return (
+            <div key={obs.id} style={{ marginBottom:14, background:'#fefcf5', border:'1px solid #c8b99a', borderLeft:`3px solid ${w.color}`, borderRadius:2, padding:'12px 14px', position:'relative', backgroundImage:OBS_GRID, backgroundSize:'20px 20px' }}>
+              <div style={{ background:'rgba(254,252,245,0.92)', borderRadius:1, padding:'8px 10px' }}>
+                {/* Header row */}
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+                  <span style={{ fontSize:8, padding:'1px 7px', border:`1px solid ${w.color}44`, borderRadius:2, color:w.color, fontFamily:'DM Mono, monospace', letterSpacing:'0.06em' }}>{w.icon} {w.label}</span>
+                  <span style={{ fontSize:8, color:'#8a7060', fontFamily:'DM Mono, monospace' }}>
+                    {dt.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'})} · {dt.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'})}
+                  </span>
+                  {obs.context && <span style={{ fontSize:8, color:'#8a7060', fontStyle:'italic', fontFamily:'Georgia, serif' }}>— {obs.context}</span>}
+                  <button onClick={() => remove(obs.id)}
+                    style={{ marginLeft:'auto', fontSize:10, color:'#c8b99a', background:'none', border:'none', cursor:'pointer', opacity:0.5 }}
+                    onMouseEnter={e=>{e.currentTarget.style.color='#c0392b';e.currentTarget.style.opacity='1';}}
+                    onMouseLeave={e=>{e.currentTarget.style.color='#c8b99a';e.currentTarget.style.opacity='0.5';}}>✕</button>
+                </div>
+                {/* Text */}
+                <div style={{ fontSize:13, color:'#2a1a08', lineHeight:1.75, fontFamily:'Georgia, serif' }}>{obs.text}</div>
+                {/* Linked topics */}
+                {linkedTopics.length > 0 && (
+                  <div style={{ display:'flex', gap:4, marginTop:8, flexWrap:'wrap' }}>
+                    {linkedTopics.map(t => (
+                      <span key={t.id} style={{ fontSize:8, padding:'1px 7px', background:'#e8dfc8', border:'1px solid #c8b99a', borderRadius:2, color:'#5a4a2a', fontStyle:'italic' }}>{t.title}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
