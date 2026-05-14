@@ -31,6 +31,8 @@ const NAV_GROUPS_READING = [
       { id: 'investigation', icon: '⊛', label: 'The Casebook'        },
       { id: 'timeline',      icon: '↔', label: 'The Chronicle'       },
       { id: 'mindmap',       icon: '✦', label: 'META'                },
+      { id: 'anatomy', icon: '⊕', label: 'Teatro Anatomico' },
+      { id: 'vault',   icon: '◈', label: 'The Vault'         },
     ],
   },
 ];
