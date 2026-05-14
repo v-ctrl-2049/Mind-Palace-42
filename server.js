@@ -22,8 +22,8 @@ if (!fs.existsSync(DATA_DIR)) {
 app.use(cors({
   origin: [
     'http://localhost:3000',
-    process.env.FRONTEND_URL || 'https://reading-mind.vercel.app',
-  ].filter(Boolean)
+    'https://mind-palace-42-three.vercel.app',
+  ]
 }));
 app.use(express.json({ limit: '50mb' }));
 
