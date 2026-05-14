@@ -277,13 +277,14 @@ export default function Sidebar({ books, groups, activeView, activeBook, onViewC
       </div>
 
       {/* ── FOOTER ───────────────────────────────────────── */}
-      <div style={{ padding: '8px 12px 10px', borderTop: '1px solid var(--paper-3)' }}>
+      <div style={{ padding: '8px 12px 10px', borderTop: '1px solid var(--paper-3)', display: 'flex', flexDirection: 'column', gap: 5 }}>
         <button onClick={onAddBook}
           style={{ width: '100%', padding: '6px 0', fontSize: 10, color: 'var(--ink-3)', border: '1px dashed var(--paper-3)', borderRadius: 2, cursor: 'pointer', background: 'transparent', fontFamily: 'var(--font-mono)', fontStyle: 'normal', letterSpacing: '0.05em' }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-2)'; e.currentTarget.style.color = 'var(--accent)'; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--paper-3)'; e.currentTarget.style.color = 'var(--ink-3)'; }}>
           + ADD TO COLLECTION
         </button>
+        <ExportButton />
       </div>
     </div>
   );
@@ -406,5 +407,38 @@ function SanReport({ sanity, onClose }) {
         </div>
       )}
     </div>
+  );
+}
+
+// ── Export to Obsidian button ─────────────────────────────────────
+function ExportButton() {
+  const [status, setStatus] = React.useState(null); // null | 'loading' | 'done' | 'error'
+  const [count,  setCount]  = React.useState(0);
+
+  const doExport = async () => {
+    setStatus('loading');
+    try {
+      const res = await fetch('http://localhost:3001/api/export/obsidian', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vaultPath: '/Users/vxtl/Documents/MindPalace42' }),
+      });
+      const data = await res.json();
+      if (data.ok) { setStatus('done'); setCount(data.written); }
+      else setStatus('error');
+    } catch { setStatus('error'); }
+    setTimeout(() => setStatus(null), 3000);
+  };
+
+  return (
+    <button onClick={doExport} disabled={status === 'loading'}
+      style={{ width: '100%', padding: '5px 0', fontSize: 9, color: status === 'done' ? '#2e7d5e' : status === 'error' ? '#c0392b' : 'var(--ink-4)', border: '1px dashed var(--paper-3)', borderRadius: 2, cursor: 'pointer', background: 'transparent', fontFamily: 'var(--font-mono)', fontStyle: 'normal', letterSpacing: '0.05em' }}
+      onMouseEnter={e => { if (!status) { e.currentTarget.style.borderColor = '#5a4a2a'; e.currentTarget.style.color = '#8a7a5a'; } }}
+      onMouseLeave={e => { if (!status) { e.currentTarget.style.borderColor = 'var(--paper-3)'; e.currentTarget.style.color = 'var(--ink-4)'; } }}>
+      {status === 'loading' ? '⊛ exporting…' :
+       status === 'done'    ? `✓ ${count} files written` :
+       status === 'error'   ? '✕ export failed' :
+       '◈ export to obsidian'}
+    </button>
   );
 }

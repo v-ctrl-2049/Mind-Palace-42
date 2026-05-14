@@ -3,6 +3,7 @@ const express = require('express');
 const cors    = require('cors');
 const fs      = require('fs');
 const path    = require('path');
+const { exportToObsidian } = require('./obsidian-export');
 
 const app     = express();
 const PORT    = process.env.PORT || 3001;
@@ -80,6 +81,15 @@ app.delete('/api/data/:key', (req, res) => {
 
 app.get('/health', (req, res) => res.json({ ok: true, dataDir: DATA_DIR }));
 
+app.post('/api/export/obsidian', (req, res) => {
+  const vaultPath = req.body.vaultPath || '/Users/vxtl/Documents/MindPalace42';
+  try {
+    const results = exportToObsidian(DATA_DIR, vaultPath);
+    res.json({ ok: true, written: results.written.length, errors: results.errors });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Mind Palace storage server running on port ${PORT}`);
   console.log(`Data directory: ${DATA_DIR}`);
