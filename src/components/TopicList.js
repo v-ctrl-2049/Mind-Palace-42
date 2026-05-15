@@ -266,12 +266,18 @@ export default function TopicList({
 
   // Topics in selected domain
   const domainTopics = useMemo(() => {
-    let pool = selectedDomainId === '__uncategorised'
-      ? topics.filter(t => !t.domainId)
-      : topics.filter(t => t.domainId === selectedDomainId);
-    if (search) pool = pool.filter(t => t.title?.toLowerCase().includes(search.toLowerCase()));
-    return pool;
-  }, [topics, selectedDomainId, search]);
+  const inDomain = selectedDomainId === '__uncategorised'
+    ? topics.filter(t => !t.domainId)
+    : topics.filter(t => t.domainId === selectedDomainId);
+  
+  // Also include subtopics whose parent is in this domain
+  const inDomainIds = new Set(inDomain.map(t => t.id));
+  const subtopics = topics.filter(t => t.parentId && inDomainIds.has(t.parentId) && !inDomainIds.has(t.id));
+  
+  let pool = [...inDomain, ...subtopics];
+  if (search) pool = pool.filter(t => t.title?.toLowerCase().includes(search.toLowerCase()));
+  return pool;
+}, [topics, selectedDomainId, search]);
 
   // Build tree — roots + children
   const roots    = domainTopics.filter(t => !t.parentId);
